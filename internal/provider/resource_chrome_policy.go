@@ -4,10 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"reflect"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -84,240 +82,19 @@ func resourceChromePolicy() *schema.Resource {
 }
 
 func resourceChromePolicyCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	client := meta.(*apiClient)
-
-	chromePolicyService, diags := client.NewChromePolicyService()
-	if diags.HasError() {
-		return diags
-	}
-
-	chromePoliciesService, diags := GetChromePoliciesService(chromePolicyService)
-	if diags.HasError() {
-		return diags
-	}
-
-	orgUnitId := strings.TrimPrefix(d.Get("org_unit_id").(string), "id:")
-
-	log.Printf("[DEBUG] Creating Chrome Policy for org:%s", orgUnitId)
-
-	policyTargetKey := &chromepolicy.GoogleChromePolicyV1PolicyTargetKey{
-		TargetResource: "orgunits/" + orgUnitId,
-	}
-
-	if _, ok := d.GetOk("additional_target_keys"); ok {
-		policyTargetKey.AdditionalTargetKeys = expandChromePoliciesAdditionalTargetKeys(d.Get("additional_target_keys").([]interface{}))
-	}
-
-	diags = validateChromePolicies(ctx, d, client)
-	if diags.HasError() {
-		return diags
-	}
-
-	policies, diags := expandChromePoliciesValues(d.Get("policies").([]interface{}))
-	if diags.HasError() {
-		return diags
-	}
-
-	var requests []*chromepolicy.GoogleChromePolicyV1ModifyOrgUnitPolicyRequest
-	for _, p := range policies {
-		var keys []string
-		var schemaValues map[string]interface{}
-		if err := json.Unmarshal(p.Value, &schemaValues); err != nil {
-			return diag.FromErr(err)
-		}
-		for key := range schemaValues {
-			keys = append(keys, key)
-		}
-		requests = append(requests, &chromepolicy.GoogleChromePolicyV1ModifyOrgUnitPolicyRequest{
-			PolicyTargetKey: policyTargetKey,
-			PolicyValue:     p,
-			UpdateMask:      strings.Join(keys, ","),
-		})
-	}
-
-	err := retryTimeDuration(ctx, time.Minute, func() error {
-		_, retryErr := chromePoliciesService.Orgunits.BatchModify(fmt.Sprintf("customers/%s", client.Customer), &chromepolicy.GoogleChromePolicyV1BatchModifyOrgUnitPoliciesRequest{Requests: requests}).Do()
-		return retryErr
-	})
-
-	if err != nil {
-		return diag.FromErr(err)
-	}
-
-	log.Printf("[DEBUG] Finished creating Chrome Policy for org:%s", orgUnitId)
-	d.SetId(orgUnitId)
-
-	return resourceChromePolicyRead(ctx, d, meta)
+	return chromePolicyCreateCommon(ctx, d, meta, targetOrgUnit, "org_unit_id")
 }
 
 func resourceChromePolicyUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	client := meta.(*apiClient)
-
-	chromePolicyService, diags := client.NewChromePolicyService()
-	if diags.HasError() {
-		return diags
-	}
-
-	chromePoliciesService, diags := GetChromePoliciesService(chromePolicyService)
-	if diags.HasError() {
-		return diags
-	}
-
-	log.Printf("[DEBUG] Updating Chrome Policy for org:%s", d.Id())
-
-	policyTargetKey := &chromepolicy.GoogleChromePolicyV1PolicyTargetKey{
-		TargetResource: "orgunits/" + d.Id(),
-	}
-
-	if _, ok := d.GetOk("additional_target_keys"); ok {
-		policyTargetKey.AdditionalTargetKeys = expandChromePoliciesAdditionalTargetKeys(d.Get("additional_target_keys").([]interface{}))
-	}
-
-	// Update is achieved by inheriting defaults for the previous policySchemas, and then applying the new set
-	old, _ := d.GetChange("policies")
-
-	var requests []*chromepolicy.GoogleChromePolicyV1InheritOrgUnitPolicyRequest
-	for _, p := range old.([]interface{}) {
-		policy := p.(map[string]interface{})
-		schemaName := policy["schema_name"].(string)
-
-		requests = append(requests, &chromepolicy.GoogleChromePolicyV1InheritOrgUnitPolicyRequest{
-			PolicyTargetKey: policyTargetKey,
-			PolicySchema:    schemaName,
-		})
-	}
-
-	err := retryTimeDuration(ctx, time.Minute, func() error {
-		_, retryErr := chromePoliciesService.Orgunits.BatchInherit(fmt.Sprintf("customers/%s", client.Customer), &chromepolicy.GoogleChromePolicyV1BatchInheritOrgUnitPoliciesRequest{Requests: requests}).Do()
-		return retryErr
-	})
-
-	if err != nil {
-		return diag.FromErr(err)
-	}
-
-	// run create
-	diags = resourceChromePolicyCreate(ctx, d, meta)
-	if diags.HasError() {
-		return diags
-	}
-
-	log.Printf("[DEBUG] Finished Updating Chrome Policy for org:%s", d.Id())
-
-	return diags
+	return chromePolicyUpdateCommon(ctx, d, meta, targetOrgUnit)
 }
 
 func resourceChromePolicyRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	client := meta.(*apiClient)
-
-	chromePolicyService, diags := client.NewChromePolicyService()
-	if diags.HasError() {
-		return diags
-	}
-
-	chromePoliciesService, diags := GetChromePoliciesService(chromePolicyService)
-	if diags.HasError() {
-		return diags
-	}
-
-	log.Printf("[DEBUG] Getting Chrome Policy for org:%s", d.Id())
-
-	policyTargetKey := &chromepolicy.GoogleChromePolicyV1PolicyTargetKey{
-		TargetResource: "orgunits/" + d.Id(),
-	}
-
-	if _, ok := d.GetOk("additional_target_keys"); ok {
-		policyTargetKey.AdditionalTargetKeys = expandChromePoliciesAdditionalTargetKeys(d.Get("additional_target_keys").([]interface{}))
-	}
-
-	policiesObj := []*chromepolicy.GoogleChromePolicyV1PolicyValue{}
-	for _, p := range d.Get("policies").([]interface{}) {
-		policy := p.(map[string]interface{})
-		schemaName := policy["schema_name"].(string)
-
-		var resp *chromepolicy.GoogleChromePolicyV1ResolveResponse
-		err := retryTimeDuration(ctx, time.Minute, func() error {
-			var retryErr error
-
-			// we will resolve each individual policySchema by fully qualified name, so the responses should be a single result
-			resp, retryErr = chromePoliciesService.Resolve(fmt.Sprintf("customers/%s", client.Customer), &chromepolicy.GoogleChromePolicyV1ResolveRequest{
-				PolicySchemaFilter: schemaName,
-				PolicyTargetKey:    policyTargetKey,
-			}).Do()
-
-			return retryErr
-		})
-		if err != nil {
-			return diag.FromErr(err)
-		}
-
-		if len(resp.ResolvedPolicies) != 1 {
-			return diag.Errorf("unexpected number of resolved policies for schema: %s", schemaName)
-		}
-
-		value := resp.ResolvedPolicies[0].Value
-
-		policiesObj = append(policiesObj, value)
-	}
-
-	policies, diags := flattenChromePolicies(ctx, policiesObj, client)
-	if diags.HasError() {
-		return diags
-	}
-
-	if err := d.Set("policies", policies); err != nil {
-		return diag.FromErr(err)
-	}
-
-	log.Printf("[DEBUG] Finished getting Chrome Policy for org:%s", d.Id())
-	return nil
+	return chromePolicyReadCommon(ctx, d, meta, targetOrgUnit)
 }
 
 func resourceChromePolicyDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	client := meta.(*apiClient)
-
-	chromePolicyService, diags := client.NewChromePolicyService()
-	if diags.HasError() {
-		return diags
-	}
-
-	chromePoliciesService, diags := GetChromePoliciesService(chromePolicyService)
-	if diags.HasError() {
-		return diags
-	}
-
-	log.Printf("[DEBUG] Deleting Chrome Policy for org:%s", d.Id())
-
-	policyTargetKey := &chromepolicy.GoogleChromePolicyV1PolicyTargetKey{
-		TargetResource: "orgunits/" + d.Id(),
-	}
-
-	if _, ok := d.GetOk("additional_target_keys"); ok {
-		policyTargetKey.AdditionalTargetKeys = expandChromePoliciesAdditionalTargetKeys(d.Get("additional_target_keys").([]interface{}))
-	}
-
-	var requests []*chromepolicy.GoogleChromePolicyV1InheritOrgUnitPolicyRequest
-	for _, p := range d.Get("policies").([]interface{}) {
-		policy := p.(map[string]interface{})
-		schemaName := policy["schema_name"].(string)
-
-		requests = append(requests, &chromepolicy.GoogleChromePolicyV1InheritOrgUnitPolicyRequest{
-			PolicyTargetKey: policyTargetKey,
-			PolicySchema:    schemaName,
-		})
-	}
-
-	err := retryTimeDuration(ctx, time.Minute, func() error {
-		_, retryErr := chromePoliciesService.Orgunits.BatchInherit(fmt.Sprintf("customers/%s", client.Customer), &chromepolicy.GoogleChromePolicyV1BatchInheritOrgUnitPoliciesRequest{Requests: requests}).Do()
-		return retryErr
-	})
-
-	if err != nil {
-		return diag.FromErr(err)
-	}
-
-	log.Printf("[DEBUG] Finished deleting Chrome Policy for org:%s", d.Id())
-	return nil
+	return chromePolicyDeleteCommon(ctx, d, meta, targetOrgUnit)
 }
 
 // Chrome Policies
