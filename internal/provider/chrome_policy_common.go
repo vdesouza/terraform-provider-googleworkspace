@@ -75,8 +75,16 @@ func chromePolicyCreateCommon(ctx context.Context, d *schema.ResourceData, meta 
 		})
 	}
 
+	// First verify that the policy target is valid using Resolve
 	err := retryTimeDuration(ctx, time.Minute, func() error {
-		var retryErr error
+		_, retryErr := chromePoliciesService.Resolve(fmt.Sprintf("customers/%s", client.Customer), &chromepolicy.GoogleChromePolicyV1ResolveRequest{
+			PolicyTargetKey: policyTargetKey,
+		}).Do()
+		if retryErr != nil {
+			return fmt.Errorf("failed to validate policy target: %v", retryErr)
+		}
+
+		// If target is valid, proceed with the policy modification
 		_, retryErr = chromePoliciesService.Orgunits.BatchModify(fmt.Sprintf("customers/%s", client.Customer), &chromepolicy.GoogleChromePolicyV1BatchModifyOrgUnitPoliciesRequest{Requests: requests}).Do()
 		return retryErr
 	})
