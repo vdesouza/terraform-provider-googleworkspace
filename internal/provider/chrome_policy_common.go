@@ -76,7 +76,8 @@ func chromePolicyCreateCommon(ctx context.Context, d *schema.ResourceData, meta 
 	}
 
 	err := retryTimeDuration(ctx, time.Minute, func() error {
-		_, retryErr := chromePoliciesService.Orgunits.BatchModify(fmt.Sprintf("customers/%s", client.Customer), &chromepolicy.GoogleChromePolicyV1BatchModifyOrgUnitPoliciesRequest{Requests: requests}).Do()
+		var retryErr error
+		_, retryErr = chromePoliciesService.Orgunits.BatchModify(fmt.Sprintf("customers/%s", client.Customer), &chromepolicy.GoogleChromePolicyV1BatchModifyOrgUnitPoliciesRequest{Requests: requests}).Do()
 		return retryErr
 	})
 	if err != nil {
