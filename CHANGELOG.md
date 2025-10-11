@@ -1,4 +1,7 @@
-## 0.8.0 (Unreleased)
+## 1.1.3 (October 10, 2025)
+
+IMPROVEMENTS:
+* provider: updated Chrome Policy API and dependencies to latest versions
 
 BUG FIXES:
 * chrome: fixed a bug where when validating a `googleworkspace_chrome_policy` schema value the proto `LABEL_REPEATED` label was not being respected to require an array of the associated type ([#336](https://github.com/hashicorp/terraform-provider-googleworkspace/pull/336))
