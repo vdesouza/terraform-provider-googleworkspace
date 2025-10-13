@@ -1,3 +1,8 @@
+## 1.1.6 (October 13, 2025)
+
+BUG FIXES:
+* chrome: fix handling multiple policies in one resource
+
 ## 1.1.5 (October 13, 2025)
 
 BUG FIXES:

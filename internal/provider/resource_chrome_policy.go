@@ -342,30 +342,37 @@ func expandChromePoliciesValues(policies []interface{}) ([]*chromepolicy.GoogleC
 		schemaName := policy["schema_name"].(string)
 		schemaValues := policy["schema_values"].(map[string]interface{})
 
-		policyValuesObj := map[string]interface{}{}
+		policyValuesObj := make(map[string]interface{}, len(schemaValues))
 
 		for k, v := range schemaValues {
-			var polVal interface{}
-			err := json.Unmarshal([]byte(v.(string)), &polVal)
-			if err != nil {
-				return nil, diag.FromErr(err)
+			// Try to parse as JSON first
+			if strVal, ok := v.(string); ok {
+				var jsonVal interface{}
+				if err := json.Unmarshal([]byte(strVal), &jsonVal); err == nil {
+					// Successfully parsed as JSON
+					policyValuesObj[k] = jsonVal
+					continue
+				}
+				// If it's not valid JSON, use the string value directly
+				policyValuesObj[k] = strVal
+			} else {
+				// For non-string values, use them as-is
+				policyValuesObj[k] = v
 			}
-
-			policyValuesObj[k] = polVal
 		}
 
-		// create the json object and assign to the schema
+		// Marshal the entire policy value object
 		schemaValuesJson, err := json.Marshal(policyValuesObj)
 		if err != nil {
-			return nil, diag.FromErr(err)
+			return nil, diag.FromErr(fmt.Errorf("failed to marshal policy values for schema %s: %v", schemaName, err))
 		}
 
-		policyObj := chromepolicy.GoogleChromePolicyVersionsV1PolicyValue{
+		policyValue := &chromepolicy.GoogleChromePolicyVersionsV1PolicyValue{
 			PolicySchema: schemaName,
 			Value:        schemaValuesJson,
 		}
 
-		result = append(result, &policyObj)
+		result = append(result, policyValue)
 	}
 
 	return result, diags

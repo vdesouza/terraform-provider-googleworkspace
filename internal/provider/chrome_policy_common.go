@@ -58,6 +58,8 @@ func chromePolicyCreateCommon(ctx context.Context, d *schema.ResourceData, meta 
 		return diags
 	}
 
+	log.Printf("[DEBUG] Expanded policies: %+v", policies)
+
 	var modifyErr error
 	// process group based policies
 	if kind == targetGroup {
@@ -71,11 +73,14 @@ func chromePolicyCreateCommon(ctx context.Context, d *schema.ResourceData, meta 
 			for key := range schemaValues {
 				keys = append(keys, key)
 			}
-			requests = append(requests, &chromepolicy.GoogleChromePolicyVersionsV1ModifyGroupPolicyRequest{
+			req := &chromepolicy.GoogleChromePolicyVersionsV1ModifyGroupPolicyRequest{
 				PolicyTargetKey: policyTargetKey,
 				PolicyValue:     p,
 				UpdateMask:      strings.Join(keys, ","),
-			})
+			}
+			log.Printf("[DEBUG] Group policy request: %+v", req)
+			log.Printf("[DEBUG] Group policy value: %+v", p)
+			requests = append(requests, req)
 		}
 		modifyErr = retryTimeDuration(ctx, time.Minute, func() error {
 			_, retryErr := chromePoliciesService.Groups.BatchModify(fmt.Sprintf("customers/%s", client.Customer), &chromepolicy.GoogleChromePolicyVersionsV1BatchModifyGroupPoliciesRequest{Requests: requests}).Do()
