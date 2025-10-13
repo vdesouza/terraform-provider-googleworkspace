@@ -1,3 +1,8 @@
+## 1.1.7 (October 13, 2025)
+
+BUG FIXES:
+* chrome: test
+
 ## 1.1.6 (October 13, 2025)
 
 BUG FIXES:

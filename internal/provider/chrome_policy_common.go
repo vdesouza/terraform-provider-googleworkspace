@@ -63,7 +63,8 @@ func chromePolicyCreateCommon(ctx context.Context, d *schema.ResourceData, meta 
 	var modifyErr error
 	// process group based policies
 	if kind == targetGroup {
-		var requests []*chromepolicy.GoogleChromePolicyVersionsV1ModifyGroupPolicyRequest
+		// Make individual API calls for each policy instead of batching
+		// This works around an issue where batch requests fail with multiple policies
 		for _, p := range policies {
 			var keys []string
 			var schemaValues map[string]interface{}
@@ -80,12 +81,24 @@ func chromePolicyCreateCommon(ctx context.Context, d *schema.ResourceData, meta 
 			}
 			log.Printf("[DEBUG] Group policy request: %+v", req)
 			log.Printf("[DEBUG] Group policy value: %+v", p)
-			requests = append(requests, req)
+			log.Printf("[DEBUG] Group policy value (raw bytes): %s", string(p.Value))
+			log.Printf("[DEBUG] Group policy schema: %s", p.PolicySchema)
+			log.Printf("[DEBUG] Update mask: %s", strings.Join(keys, ","))
+			
+			// Make individual call
+			batchReq := &chromepolicy.GoogleChromePolicyVersionsV1BatchModifyGroupPoliciesRequest{
+				Requests: []*chromepolicy.GoogleChromePolicyVersionsV1ModifyGroupPolicyRequest{req},
+			}
+			
+			modifyErr = retryTimeDuration(ctx, time.Minute, func() error {
+				_, retryErr := chromePoliciesService.Groups.BatchModify(fmt.Sprintf("customers/%s", client.Customer), batchReq).Do()
+				return retryErr
+			})
+			
+			if modifyErr != nil {
+				return diag.FromErr(modifyErr)
+			}
 		}
-		modifyErr = retryTimeDuration(ctx, time.Minute, func() error {
-			_, retryErr := chromePoliciesService.Groups.BatchModify(fmt.Sprintf("customers/%s", client.Customer), &chromepolicy.GoogleChromePolicyVersionsV1BatchModifyGroupPoliciesRequest{Requests: requests}).Do()
-			return retryErr
-		})
 	} else {
 		// process org unit based policies
 		var requests []*chromepolicy.GoogleChromePolicyVersionsV1ModifyOrgUnitPolicyRequest
