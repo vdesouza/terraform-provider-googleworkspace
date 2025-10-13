@@ -1,3 +1,8 @@
+## 1.1.4 (October 13, 2025)
+
+BUG FIXES:
+* chrome: fix group based policy updates
+
 ## 1.1.3 (October 10, 2025)
 
 IMPROVEMENTS:

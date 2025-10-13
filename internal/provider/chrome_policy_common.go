@@ -141,26 +141,29 @@ func chromePolicyUpdateCommon(ctx context.Context, d *schema.ResourceData, meta 
 
 	old, _ := d.GetChange("policies")
 
-	var requests []*chromepolicy.GoogleChromePolicyVersionsV1InheritOrgUnitPolicyRequest
-	for _, p := range old.([]interface{}) {
-		policy := p.(map[string]interface{})
-		schemaName := policy["schema_name"].(string)
+	if kind == targetOrgUnit {
+		// For org units, we use inherit-then-create pattern
+		var requests []*chromepolicy.GoogleChromePolicyVersionsV1InheritOrgUnitPolicyRequest
+		for _, p := range old.([]interface{}) {
+			policy := p.(map[string]interface{})
+			schemaName := policy["schema_name"].(string)
 
-		requests = append(requests, &chromepolicy.GoogleChromePolicyVersionsV1InheritOrgUnitPolicyRequest{
-			PolicyTargetKey: policyTargetKey,
-			PolicySchema:    schemaName,
+			requests = append(requests, &chromepolicy.GoogleChromePolicyVersionsV1InheritOrgUnitPolicyRequest{
+				PolicyTargetKey: policyTargetKey,
+				PolicySchema:    schemaName,
+			})
+		}
+
+		err := retryTimeDuration(ctx, time.Minute, func() error {
+			_, retryErr := chromePoliciesService.Orgunits.BatchInherit(fmt.Sprintf("customers/%s", client.Customer), &chromepolicy.GoogleChromePolicyVersionsV1BatchInheritOrgUnitPoliciesRequest{Requests: requests}).Do()
+			return retryErr
 		})
+		if err != nil {
+			return diag.FromErr(err)
+		}
 	}
 
-	err := retryTimeDuration(ctx, time.Minute, func() error {
-		_, retryErr := chromePoliciesService.Orgunits.BatchInherit(fmt.Sprintf("customers/%s", client.Customer), &chromepolicy.GoogleChromePolicyVersionsV1BatchInheritOrgUnitPoliciesRequest{Requests: requests}).Do()
-		return retryErr
-	})
-	if err != nil {
-		return diag.FromErr(err)
-	}
-
-	// Re-run create logic to apply the new set.
+	// Re-run create logic to apply the new set. Groups will just apply the batch modify to update any changes.
 	diags = chromePolicyCreateCommon(ctx, d, meta, kind, idAttributeForKind(kind))
 	if diags.HasError() {
 		return diags
