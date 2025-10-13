@@ -1,3 +1,8 @@
+## 1.1.8 (October 13, 2025)
+
+BUG FIXES:
+* chrome: fix group policy updates not deleting removed policies
+
 ## 1.1.7 (October 13, 2025)
 
 BUG FIXES:

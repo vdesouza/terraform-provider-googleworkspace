@@ -179,9 +179,29 @@ func chromePolicyUpdateCommon(ctx context.Context, d *schema.ResourceData, meta 
 		if err != nil {
 			return diag.FromErr(err)
 		}
+	} else if kind == targetGroup {
+		// For groups, delete old policies before applying new ones
+		var deleteRequests []*chromepolicy.GoogleChromePolicyVersionsV1DeleteGroupPolicyRequest
+		for _, p := range old.([]interface{}) {
+			policy := p.(map[string]interface{})
+			schemaName := policy["schema_name"].(string)
+
+			deleteRequests = append(deleteRequests, &chromepolicy.GoogleChromePolicyVersionsV1DeleteGroupPolicyRequest{
+				PolicyTargetKey: policyTargetKey,
+				PolicySchema:    schemaName,
+			})
+		}
+
+		err := retryTimeDuration(ctx, time.Minute, func() error {
+			_, retryErr := chromePoliciesService.Groups.BatchDelete(fmt.Sprintf("customers/%s", client.Customer), &chromepolicy.GoogleChromePolicyVersionsV1BatchDeleteGroupPoliciesRequest{Requests: deleteRequests}).Do()
+			return retryErr
+		})
+		if err != nil {
+			return diag.FromErr(err)
+		}
 	}
 
-	// Re-run create logic to apply the new set. Groups will just apply the batch modify to update any changes.
+	// Re-run create logic to apply the new set.
 	diags = chromePolicyCreateCommon(ctx, d, meta, kind, idAttributeForKind(kind))
 	if diags.HasError() {
 		return diags
