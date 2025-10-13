@@ -203,9 +203,14 @@ func chromePolicyReadCommon(ctx context.Context, d *schema.ResourceData, meta in
 	}
 
 	policiesObj := []*chromepolicy.GoogleChromePolicyVersionsV1PolicyValue{}
-	for _, p := range d.Get("policies").([]interface{}) {
+	configuredPolicies := d.Get("policies").([]interface{})
+
+	// Resolve each configured policy individually
+	for _, p := range configuredPolicies {
 		policy := p.(map[string]interface{})
 		schemaName := policy["schema_name"].(string)
+
+		log.Printf("[DEBUG] Resolving policy for schema %s", schemaName)
 
 		var resp *chromepolicy.GoogleChromePolicyVersionsV1ResolveResponse
 		err := retryTimeDuration(ctx, time.Minute, func() error {
@@ -220,12 +225,12 @@ func chromePolicyReadCommon(ctx context.Context, d *schema.ResourceData, meta in
 			return diag.FromErr(err)
 		}
 
-		if len(resp.ResolvedPolicies) != 1 {
-			return diag.Errorf("unexpected number of resolved policies for schema: %s", schemaName)
+		if len(resp.ResolvedPolicies) > 0 {
+			policiesObj = append(policiesObj, resp.ResolvedPolicies[0].Value)
+			log.Printf("[DEBUG] Found policy for schema %s", schemaName)
+		} else {
+			log.Printf("[DEBUG] No policy found for schema %s", schemaName)
 		}
-
-		value := resp.ResolvedPolicies[0].Value
-		policiesObj = append(policiesObj, value)
 	}
 
 	policies, diags := flattenChromePolicies(ctx, policiesObj, client)
