@@ -1,3 +1,13 @@
+## 1.1.5 (October 13, 2025)
+
+BUG FIXES:
+* chrome: fix group based policy deletes
+
+## 1.1.5 (October 13, 2025)
+
+BUG FIXES:
+* chrome: fix group based policy deletion
+
 ## 1.1.4 (October 13, 2025)
 
 BUG FIXES:

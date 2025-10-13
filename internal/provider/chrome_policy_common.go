@@ -260,20 +260,38 @@ func chromePolicyDeleteCommon(ctx context.Context, d *schema.ResourceData, meta 
 		policyTargetKey.AdditionalTargetKeys = expandChromePoliciesAdditionalTargetKeys(d.Get("additional_target_keys").([]interface{}))
 	}
 
-	var requests []*chromepolicy.GoogleChromePolicyVersionsV1InheritOrgUnitPolicyRequest
-	for _, p := range d.Get("policies").([]interface{}) {
-		policy := p.(map[string]interface{})
-		schemaName := policy["schema_name"].(string)
-		requests = append(requests, &chromepolicy.GoogleChromePolicyVersionsV1InheritOrgUnitPolicyRequest{
-			PolicyTargetKey: policyTargetKey,
-			PolicySchema:    schemaName,
+	var err error
+	if kind == targetGroup {
+		var deleteRequests []*chromepolicy.GoogleChromePolicyVersionsV1DeleteGroupPolicyRequest
+		for _, p := range d.Get("policies").([]interface{}) {
+			policy := p.(map[string]interface{})
+			schemaName := policy["schema_name"].(string)
+			deleteRequests = append(deleteRequests, &chromepolicy.GoogleChromePolicyVersionsV1DeleteGroupPolicyRequest{
+				PolicyTargetKey: policyTargetKey,
+				PolicySchema:    schemaName,
+			})
+		}
+
+		err = retryTimeDuration(ctx, time.Minute, func() error {
+			_, retryErr := chromePoliciesService.Groups.BatchDelete(fmt.Sprintf("customers/%s", client.Customer), &chromepolicy.GoogleChromePolicyVersionsV1BatchDeleteGroupPoliciesRequest{Requests: deleteRequests}).Do()
+			return retryErr
+		})
+	} else {
+		var requests []*chromepolicy.GoogleChromePolicyVersionsV1InheritOrgUnitPolicyRequest
+		for _, p := range d.Get("policies").([]interface{}) {
+			policy := p.(map[string]interface{})
+			schemaName := policy["schema_name"].(string)
+			requests = append(requests, &chromepolicy.GoogleChromePolicyVersionsV1InheritOrgUnitPolicyRequest{
+				PolicyTargetKey: policyTargetKey,
+				PolicySchema:    schemaName,
+			})
+		}
+
+		err = retryTimeDuration(ctx, time.Minute, func() error {
+			_, retryErr := chromePoliciesService.Orgunits.BatchInherit(fmt.Sprintf("customers/%s", client.Customer), &chromepolicy.GoogleChromePolicyVersionsV1BatchInheritOrgUnitPoliciesRequest{Requests: requests}).Do()
+			return retryErr
 		})
 	}
-
-	err := retryTimeDuration(ctx, time.Minute, func() error {
-		_, retryErr := chromePoliciesService.Orgunits.BatchInherit(fmt.Sprintf("customers/%s", client.Customer), &chromepolicy.GoogleChromePolicyVersionsV1BatchInheritOrgUnitPoliciesRequest{Requests: requests}).Do()
-		return retryErr
-	})
 	if err != nil {
 		return diag.FromErr(err)
 	}
