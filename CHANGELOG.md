@@ -1,3 +1,12 @@
+## 1.2.0 (October 14, 2025)
+
+FEATURES:
+* **New Resource**: `googleworkspace_group_dynamic` - Create and manage dynamic Google Workspace groups with query-based membership using the Cloud Identity API
+* **New Service**: Added Cloud Identity API support with `NewCloudIdentityService()` and `GetCloudIdentityGroupsService()` helper functions
+
+IMPROVEMENTS:
+* provider: Added `cloud-identity.groups` scope to default OAuth scopes for dynamic group support
+
 ## 1.1.11 (October 13, 2025)
 
 BUG FIXES:

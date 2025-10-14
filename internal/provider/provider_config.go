@@ -13,6 +13,7 @@ import (
 
 	directory "google.golang.org/api/admin/directory/v1"
 	"google.golang.org/api/chromepolicy/v1"
+	"google.golang.org/api/cloudidentity/v1"
 	"google.golang.org/api/gmail/v1"
 	"google.golang.org/api/groupssettings/v1"
 	"google.golang.org/api/impersonate"
@@ -163,6 +164,28 @@ func (c *apiClient) NewChromePolicyService() (*chromepolicy.Service, diag.Diagno
 	}
 
 	return chromePolicyService, diags
+}
+
+func (c *apiClient) NewCloudIdentityService() (*cloudidentity.Service, diag.Diagnostics) {
+	var diags diag.Diagnostics
+
+	log.Printf("[INFO] Instantiating Google Cloud Identity service")
+
+	cloudIdentityService, err := cloudidentity.NewService(context.Background(), option.WithHTTPClient(c.client))
+	if err != nil {
+		return nil, diag.FromErr(err)
+	}
+
+	if cloudIdentityService == nil {
+		diags = append(diags, diag.Diagnostic{
+			Severity: diag.Error,
+			Summary:  "Cloud Identity Service could not be created.",
+		})
+
+		return nil, diags
+	}
+
+	return cloudIdentityService, diags
 }
 
 func (c *apiClient) NewDirectoryService() (*directory.Service, diag.Diagnostics) {
