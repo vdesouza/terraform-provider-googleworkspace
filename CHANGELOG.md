@@ -1,3 +1,8 @@
+## 1.1.9 (October 13, 2025)
+
+BUG FIXES:
+* chrome: workaround batch delete issues with Google's API
+
 ## 1.1.8 (October 13, 2025)
 
 BUG FIXES:
