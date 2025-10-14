@@ -1,3 +1,8 @@
+## 1.1.11 (October 13, 2025)
+
+BUG FIXES:
+* chrome: workaround batch update issues with Google's API
+
 ## 1.1.10 (October 13, 2025)
 
 FEATURES:

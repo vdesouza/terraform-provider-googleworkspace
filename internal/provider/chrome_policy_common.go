@@ -181,23 +181,27 @@ func chromePolicyUpdateCommon(ctx context.Context, d *schema.ResourceData, meta 
 		}
 	} else if kind == targetGroup {
 		// For groups, delete old policies before applying new ones
-		var deleteRequests []*chromepolicy.GoogleChromePolicyVersionsV1DeleteGroupPolicyRequest
+		// Workaround: send only one policy per batch delete call
 		for _, p := range old.([]interface{}) {
 			policy := p.(map[string]interface{})
 			schemaName := policy["schema_name"].(string)
 
-			deleteRequests = append(deleteRequests, &chromepolicy.GoogleChromePolicyVersionsV1DeleteGroupPolicyRequest{
+			deleteReq := &chromepolicy.GoogleChromePolicyVersionsV1DeleteGroupPolicyRequest{
 				PolicyTargetKey: policyTargetKey,
 				PolicySchema:    schemaName,
-			})
-		}
+			}
 
-		err := retryTimeDuration(ctx, time.Minute, func() error {
-			_, retryErr := chromePoliciesService.Groups.BatchDelete(fmt.Sprintf("customers/%s", client.Customer), &chromepolicy.GoogleChromePolicyVersionsV1BatchDeleteGroupPoliciesRequest{Requests: deleteRequests}).Do()
-			return retryErr
-		})
-		if err != nil {
-			return diag.FromErr(err)
+			batchReq := &chromepolicy.GoogleChromePolicyVersionsV1BatchDeleteGroupPoliciesRequest{
+				Requests: []*chromepolicy.GoogleChromePolicyVersionsV1DeleteGroupPolicyRequest{deleteReq},
+			}
+
+			err := retryTimeDuration(ctx, time.Minute, func() error {
+				_, retryErr := chromePoliciesService.Groups.BatchDelete(fmt.Sprintf("customers/%s", client.Customer), batchReq).Do()
+				return retryErr
+			})
+			if err != nil {
+				return diag.FromErr(err)
+			}
 		}
 	}
 
