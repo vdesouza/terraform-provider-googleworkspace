@@ -20,10 +20,18 @@ func resourceChromeGroupPolicy() *schema.Resource {
 
 		Schema: map[string]*schema.Schema{
 			"group_id": {
-				Description: "The target group on which this policy is applied.",
-				Type:        schema.TypeString,
-				Required:    true,
-				ForceNew:    true,
+				Description:   "The target group on which this policy is applied.",
+				Type:          schema.TypeString,
+				Optional:      true,
+				ForceNew:      true,
+				ConflictsWith: []string{"group_email"},
+			},
+			"group_email": {
+				Description:   "The email address of the target group on which this policy is applied. The provider will look up the group ID from this email.",
+				Type:          schema.TypeString,
+				Optional:      true,
+				ForceNew:      true,
+				ConflictsWith: []string{"group_id"},
 			},
 			"additional_target_keys": {
 				Description: "Additional target keys for policies.",
@@ -75,6 +83,37 @@ func resourceChromeGroupPolicy() *schema.Resource {
 }
 
 func resourceChromeGroupPolicyCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+	// Validate that either group_id or group_email is provided
+	_, hasGroupID := d.GetOk("group_id")
+	groupEmail, hasGroupEmail := d.GetOk("group_email")
+	
+	if !hasGroupID && !hasGroupEmail {
+		return diag.Errorf("either group_id or group_email must be specified")
+	}
+	
+	// If group_email is provided, look up the group ID
+	if hasGroupEmail {
+		client := meta.(*apiClient)
+		
+		directoryService, diags := client.NewDirectoryService()
+		if diags.HasError() {
+			return diags
+		}
+		
+		groupsService, diags := GetGroupsService(directoryService)
+		if diags.HasError() {
+			return diags
+		}
+		
+		group, err := groupsService.Get(groupEmail.(string)).Do()
+		if err != nil {
+			return diag.Errorf("failed to lookup group by email %q: %v", groupEmail.(string), err)
+		}
+		
+		// Set the group_id in the resource data for use by common functions
+		d.Set("group_id", group.Id)
+	}
+	
 	return chromePolicyCreateCommon(ctx, d, meta, targetGroup, "group_id")
 }
 
@@ -83,6 +122,14 @@ func resourceChromeGroupPolicyUpdate(ctx context.Context, d *schema.ResourceData
 }
 
 func resourceChromeGroupPolicyRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+	// If group_email was used, we need to ensure group_id is set for the read operation
+	if _, hasGroupEmail := d.GetOk("group_email"); hasGroupEmail {
+		if _, hasGroupID := d.GetOk("group_id"); !hasGroupID {
+			// This shouldn't happen after create, but handle it gracefully
+			return diag.Errorf("group_id not set after create/update")
+		}
+	}
+	
 	return chromePolicyReadCommon(ctx, d, meta, targetGroup)
 }
 

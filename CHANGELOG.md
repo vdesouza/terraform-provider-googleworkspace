@@ -1,3 +1,8 @@
+## 1.1.10 (October 13, 2025)
+
+FEATURES:
+* support passing a group email to googleworkspace_chrome_group_policy
+
 ## 1.1.9 (October 13, 2025)
 
 BUG FIXES:
