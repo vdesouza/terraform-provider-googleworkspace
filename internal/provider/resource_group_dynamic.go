@@ -83,8 +83,8 @@ func resourceGroupDynamic() *schema.Resource {
 			},
 			"labels": {
 				Description: "Additional custom label entries that apply to the Group. " +
-					"The system labels (dynamic, security, locked) are managed automatically or via their respective fields. " +
-					"The 'dynamic' label is automatically added by the API and should not be specified. " +
+					"The system labels (dynamic, discussion_forum, security, locked) are managed automatically or via their respective fields. " +
+					"The 'dynamic' label is automatically added by the API, and 'discussion_forum' is added by default. " +
 					"All label values must be empty strings.",
 				Type:     schema.TypeMap,
 				Optional: true,
@@ -143,7 +143,10 @@ func resourceGroupDynamicCreate(ctx context.Context, d *schema.ResourceData, met
 
 	// Build the group object with labels
 	// Note: Do NOT set the dynamic label directly - it's automatically added by the API
-	labels := map[string]string{}
+	// However, discussion_forum label is required for all groups
+	labels := map[string]string{
+		"cloudidentity.googleapis.com/groups.discussion_forum": "",
+	}
 
 	// Add security label if requested (immutable once added)
 	if d.Get("security_group").(bool) {
@@ -278,9 +281,10 @@ func resourceGroupDynamicRead(ctx context.Context, d *schema.ResourceData, meta 
 		// Set custom labels (filter out the system labels)
 		customLabels := make(map[string]string)
 		systemLabels := map[string]bool{
-			"cloudidentity.googleapis.com/groups.dynamic":  true,
-			"cloudidentity.googleapis.com/groups.security": true,
-			"cloudidentity.googleapis.com/groups.locked":   true,
+			"cloudidentity.googleapis.com/groups.dynamic":          true,
+			"cloudidentity.googleapis.com/groups.discussion_forum": true,
+			"cloudidentity.googleapis.com/groups.security":         true,
+			"cloudidentity.googleapis.com/groups.locked":           true,
 		}
 
 		for k, v := range group.Labels {
@@ -354,7 +358,10 @@ func resourceGroupDynamicUpdate(ctx context.Context, d *schema.ResourceData, met
 	// Handle label changes (security_group, locked, and custom labels)
 	if d.HasChange("security_group") || d.HasChange("locked") || d.HasChange("labels") {
 		// Build labels map (do NOT include dynamic label - it's automatic)
-		labels := map[string]string{}
+		// However, discussion_forum label is required for all groups
+		labels := map[string]string{
+			"cloudidentity.googleapis.com/groups.discussion_forum": "",
+		}
 
 		// Add security label if set (note: this is immutable once added)
 		if d.Get("security_group").(bool) {
