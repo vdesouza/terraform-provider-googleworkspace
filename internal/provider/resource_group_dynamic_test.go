@@ -97,7 +97,7 @@ func TestAccResourceGroupDynamic_full(t *testing.T) {
 					resource.TestCheckResourceAttr("googleworkspace_group_dynamic.test-dynamic", "display_name", "Test Dynamic Group"),
 					resource.TestCheckResourceAttr("googleworkspace_group_dynamic.test-dynamic", "description", "A test dynamic group"),
 					resource.TestCheckResourceAttr("googleworkspace_group_dynamic.test-dynamic", "query", "user.organizations.exists(org, org.department == 'Engineering')"),
-					resource.TestCheckResourceAttr("googleworkspace_group_dynamic.test-dynamic", "security_label", "true"),
+					resource.TestCheckResourceAttr("googleworkspace_group_dynamic.test-dynamic", "security_group", "true"),
 					resource.TestCheckResourceAttr("googleworkspace_group_dynamic.test-dynamic", "locked", "false"),
 					resource.TestCheckResourceAttr("googleworkspace_group_dynamic.test-dynamic", "labels.team", ""),
 					resource.TestCheckResourceAttr("googleworkspace_group_dynamic.test-dynamic", "labels.environment", ""),
@@ -119,7 +119,7 @@ func TestAccResourceGroupDynamic_full(t *testing.T) {
 					resource.TestCheckResourceAttr("googleworkspace_group_dynamic.test-dynamic", "display_name", "Updated Dynamic Group"),
 					resource.TestCheckResourceAttr("googleworkspace_group_dynamic.test-dynamic", "description", "An updated test dynamic group"),
 					resource.TestCheckResourceAttr("googleworkspace_group_dynamic.test-dynamic", "query", "user.organizations.exists(org, org.department == 'Engineering' || org.department == 'IT')"),
-					resource.TestCheckResourceAttr("googleworkspace_group_dynamic.test-dynamic", "security_label", "true"),
+					resource.TestCheckResourceAttr("googleworkspace_group_dynamic.test-dynamic", "security_group", "true"),
 					resource.TestCheckResourceAttr("googleworkspace_group_dynamic.test-dynamic", "locked", "true"),
 					resource.TestCheckResourceAttr("googleworkspace_group_dynamic.test-dynamic", "labels.team", ""),
 					resource.TestCheckResourceAttr("googleworkspace_group_dynamic.test-dynamic", "labels.updated", ""),
@@ -228,7 +228,7 @@ resource "googleworkspace_group_dynamic" "test-dynamic" {
   display_name   = "Test Dynamic Group"
   description    = "A test dynamic group"
   query          = "user.organizations.exists(org, org.department == 'Engineering')"
-  security_label = true
+  security_group = true
   locked         = false
   
   labels = {
@@ -246,7 +246,7 @@ resource "googleworkspace_group_dynamic" "test-dynamic" {
   display_name   = "Updated Dynamic Group"
   description    = "An updated test dynamic group"
   query          = "user.organizations.exists(org, org.department == 'Engineering' || org.department == 'IT')"
-  security_label = true
+  security_group = true
   locked         = true
   
   labels = {

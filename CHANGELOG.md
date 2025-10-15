@@ -1,3 +1,8 @@
+## 1.2.1 (October 15, 2025)
+
+BUG FIXES:
+* groups: fix dynamic group api call
+
 ## 1.2.0 (October 14, 2025)
 
 FEATURES:

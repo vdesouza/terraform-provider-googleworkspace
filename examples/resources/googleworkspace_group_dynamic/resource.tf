@@ -7,7 +7,7 @@ resource "googleworkspace_group_dynamic" "engineering" {
   query = "user.organizations.exists(org, org.department == 'Engineering')"
 
   # Make this a security group (immutable - cannot be removed once added)
-  security_label = true
+  security_group = true
 
   # Custom labels - all values must be empty strings
   labels = {
@@ -34,18 +34,16 @@ resource "googleworkspace_group_dynamic" "senior_engineers" {
 
   # Query with AND conditions
   query = "user.organizations.exists(org, org.department == 'Engineering' && org.title.contains('Senior')) && user.addresses.exists(addr, addr.country == 'US')"
-
+  
   # Security group that's locked
-  security_label = true
+  security_group = true
   locked         = true
-
+  
   labels = {
     "department"   = ""
     "access_level" = ""
   }
-}
-
-# Example: Dynamic group based on custom schema
+}# Example: Dynamic group based on custom schema
 resource "googleworkspace_group_dynamic" "beta_testers" {
   email        = "beta-testers@example.com"
   display_name = "Beta Testers"

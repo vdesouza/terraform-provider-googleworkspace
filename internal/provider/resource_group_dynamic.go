@@ -83,7 +83,8 @@ func resourceGroupDynamic() *schema.Resource {
 			},
 			"labels": {
 				Description: "Additional custom label entries that apply to the Group. " +
-					"The system labels (dynamic, security, locked) are managed via their respective fields. " +
+					"The system labels (dynamic, security, locked) are managed automatically or via their respective fields. " +
+					"The 'dynamic' label is automatically added by the API and should not be specified. " +
 					"All label values must be empty strings.",
 				Type:     schema.TypeMap,
 				Optional: true,
@@ -140,10 +141,9 @@ func resourceGroupDynamicCreate(ctx context.Context, d *schema.ResourceData, met
 		return validationDiags
 	}
 
-	// Build the group object with required dynamic label
-	labels := map[string]string{
-		"cloudidentity.googleapis.com/groups.dynamic": "",
-	}
+	// Build the group object with labels
+	// Note: Do NOT set the dynamic label directly - it's automatically added by the API
+	labels := map[string]string{}
 
 	// Add security label if requested (immutable once added)
 	if d.Get("security_group").(bool) {
@@ -278,17 +278,17 @@ func resourceGroupDynamicRead(ctx context.Context, d *schema.ResourceData, meta 
 		// Set custom labels (filter out the system labels)
 		customLabels := make(map[string]string)
 		systemLabels := map[string]bool{
-			"cloudidentity.googleapis.com/groups.dynamic":   true,
-			"cloudidentity.googleapis.com/groups.security":  true,
-			"cloudidentity.googleapis.com/groups.locked":    true,
+			"cloudidentity.googleapis.com/groups.dynamic":  true,
+			"cloudidentity.googleapis.com/groups.security": true,
+			"cloudidentity.googleapis.com/groups.locked":   true,
 		}
-		
+
 		for k, v := range group.Labels {
 			if !systemLabels[k] {
 				customLabels[k] = v
 			}
 		}
-		
+
 		if len(customLabels) > 0 {
 			d.Set("labels", customLabels)
 		}
@@ -334,7 +334,7 @@ func resourceGroupDynamicUpdate(ctx context.Context, d *schema.ResourceData, met
 
 	if d.HasChange("query") {
 		query := d.Get("query").(string)
-		
+
 		// Validate the new query
 		validationDiags := validateDynamicGroupQuery(query)
 		if validationDiags.HasError() {
@@ -353,10 +353,8 @@ func resourceGroupDynamicUpdate(ctx context.Context, d *schema.ResourceData, met
 
 	// Handle label changes (security_group, locked, and custom labels)
 	if d.HasChange("security_group") || d.HasChange("locked") || d.HasChange("labels") {
-		// Start with the required dynamic label
-		labels := map[string]string{
-			"cloudidentity.googleapis.com/groups.dynamic": "",
-		}
+		// Build labels map (do NOT include dynamic label - it's automatic)
+		labels := map[string]string{}
 
 		// Add security label if set (note: this is immutable once added)
 		if d.Get("security_group").(bool) {

@@ -22,7 +22,7 @@ resource "googleworkspace_group_dynamic" "engineering" {
   query = "user.organizations.exists(org, org.department == 'Engineering')"
 
   # Make this a security group (immutable - cannot be removed once added)
-  security_label = true
+  security_group = true
 
   # Custom labels - all values must be empty strings
   labels = {
@@ -51,7 +51,7 @@ resource "googleworkspace_group_dynamic" "senior_engineers" {
   query = "user.organizations.exists(org, org.department == 'Engineering' && org.title.contains('Senior')) && user.addresses.exists(addr, addr.country == 'US')"
 
   # Security group that's locked
-  security_label = true
+  security_group = true
   locked         = true
 
   labels = {
@@ -89,7 +89,7 @@ resource "googleworkspace_group_dynamic" "nyc_office" {
 
 - `description` (String) An extended description to help users determine the purpose of a Group.
 - `display_name` (String) The display name of the Group.
-- `labels` (Map of String) Additional custom label entries that apply to the Group. The system labels (dynamic, security, locked) are managed via their respective fields. All label values must be empty strings.
+- `labels` (Map of String) Additional custom label entries that apply to the Group. The system labels (dynamic, security, locked) are managed automatically or via their respective fields. The 'dynamic' label is automatically added by the API and should not be specified. All label values must be empty strings.
 - `locked` (Boolean) Defaults to `false`. If true, locks the group by adding the cloudidentity.googleapis.com/groups.locked label. Locked groups prevent members from being added or removed. This can be toggled on/off.
 - `security_group` (Boolean) Defaults to `false`. If true, adds the cloudidentity.googleapis.com/groups.security label to the group. This is an immutable change - once added, the security label cannot be removed.
 - `timeouts` (Block, Optional) (see [below for nested schema](#nestedblock--timeouts))
