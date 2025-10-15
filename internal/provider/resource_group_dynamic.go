@@ -194,7 +194,9 @@ func resourceGroupDynamicCreate(ctx context.Context, d *schema.ResourceData, met
 	}
 
 	// Create the group
-	createdGroup, err := groupsService.Create(group).InitialGroupConfig("WITH_INITIAL_OWNER").Do()
+	// Note: Dynamic groups must use EMPTY config, not WITH_INITIAL_OWNER
+	// because membership is controlled entirely by the query
+	createdGroup, err := groupsService.Create(group).InitialGroupConfig("EMPTY").Do()
 	if err != nil {
 		return diag.Errorf("failed to create dynamic group: %v", err)
 	}
