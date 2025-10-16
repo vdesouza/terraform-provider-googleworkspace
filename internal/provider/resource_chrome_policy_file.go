@@ -123,11 +123,6 @@ func resourceChromePolicyFileCreate(ctx context.Context, d *schema.ResourceData,
 
 	// Detect content type from file extension
 	contentType := "application/octet-stream"
-	if filepath.Ext(filePath) == ".jpg" || filepath.Ext(filePath) == ".jpeg" {
-		contentType = "image/jpeg"
-	} else if filepath.Ext(filePath) == ".png" {
-		contentType = "image/png"
-	}
 
 	// Set the media upload using ResumableMedia instead of Media
 	// This uses a different upload protocol that may be more compatible
