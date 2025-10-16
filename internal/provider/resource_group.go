@@ -11,6 +11,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 
 	directory "google.golang.org/api/admin/directory/v1"
+	"google.golang.org/api/cloudidentity/v1"
 	"google.golang.org/api/googleapi"
 )
 
@@ -491,15 +492,26 @@ func addSecurityLabelToGroup(ctx context.Context, client *apiClient, groupEmail 
 		}
 	}
 
-	// Add the security label
-	if group.Labels == nil {
-		group.Labels = make(map[string]string)
+	// Add the security label - create a new group object with only the labels field
+	// to avoid sending read-only fields that the API will reject
+	updatedLabels := make(map[string]string)
+	// Copy existing labels
+	if group.Labels != nil {
+		for k, v := range group.Labels {
+			updatedLabels[k] = v
+		}
 	}
-	group.Labels["cloudidentity.googleapis.com/groups.security"] = ""
+	// Add the security label
+	updatedLabels["cloudidentity.googleapis.com/groups.security"] = ""
+
+	// Create a minimal group object with only the labels field
+	updateGroup := &cloudidentity.Group{
+		Labels: updatedLabels,
+	}
 
 	// Update the group with the new label
 	updateMask := "labels"
-	_, err = groupsService.Patch(group.Name, group).UpdateMask(updateMask).Do()
+	_, err = groupsService.Patch(group.Name, updateGroup).UpdateMask(updateMask).Do()
 	if err != nil {
 		return fmt.Errorf("failed to add security label: %v", err)
 	}
