@@ -8,7 +8,6 @@ import (
 	"io"
 	"log"
 	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
