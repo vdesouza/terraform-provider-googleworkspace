@@ -447,8 +447,9 @@ func addSecurityLabelToGroup(ctx context.Context, client *apiClient, groupEmail 
 	}
 
 	// Search for the group by email to get its resource name
+	// The query format uses single = and space-separated conditions
 	searchResp, err := groupsService.Search().
-		Query(fmt.Sprintf("parent==customers/%s && groupKey.id=='%s'", client.Customer, groupEmail)).
+		Query(fmt.Sprintf("parent=customers/%s groupKey.id=%s", client.Customer, groupEmail)).
 		View("FULL").
 		Do()
 	if err != nil {
@@ -499,8 +500,9 @@ func checkSecurityLabel(ctx context.Context, client *apiClient, groupEmail strin
 	}
 
 	// Search for the group by email to get its resource name
+	// The query format uses single = and space-separated conditions
 	searchResp, err := groupsService.Search().
-		Query(fmt.Sprintf("parent==customers/%s && groupKey.id=='%s'", client.Customer, groupEmail)).
+		Query(fmt.Sprintf("parent=customers/%s groupKey.id=%s", client.Customer, groupEmail)).
 		View("FULL").
 		Do()
 	if err != nil {
