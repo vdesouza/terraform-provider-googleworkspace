@@ -40,6 +40,14 @@ func resourceChromePolicyFile() *schema.Resource {
 				Type:     schema.TypeString,
 				Required: true,
 			},
+			"policy_field": {
+				Description: "The fully qualified policy schema and field name this file is uploaded for. " +
+					"This is required by the API to validate the content type. " +
+					"Example: 'chrome.users.WallpaperImage.value' for wallpaper images.",
+				Type:     schema.TypeString,
+				Required: true,
+				ForceNew: true,
+			},
 			"file_hash": {
 				Description: "SHA256 hash of the file content. Automatically computed from file_path. " +
 					"Used to detect changes to the file content.",
@@ -66,8 +74,9 @@ func resourceChromePolicyFileCreate(ctx context.Context, d *schema.ResourceData,
 
 	client := meta.(*apiClient)
 	filePath := d.Get("file_path").(string)
+	policyField := d.Get("policy_field").(string)
 
-	log.Printf("[DEBUG] Uploading Chrome Policy File from %q", filePath)
+	log.Printf("[DEBUG] Uploading Chrome Policy File from %q for policy field %q", filePath, policyField)
 
 	// Open the file
 	file, err := os.Open(filePath)
@@ -103,9 +112,9 @@ func resourceChromePolicyFileCreate(ctx context.Context, d *schema.ResourceData,
 	// Upload the file
 	mediaService := chromepolicy.NewMediaService(chromePolicyService)
 
-	// Create upload request
+	// Create upload request with the required policy field
 	uploadRequest := &chromepolicy.GoogleChromePolicyVersionsV1UploadPolicyFileRequest{
-		// PolicyField is optional - specify if you want to associate with a specific policy
+		PolicyField: policyField,
 	}
 
 	// Create upload call with customer as parent
@@ -114,7 +123,7 @@ func resourceChromePolicyFileCreate(ctx context.Context, d *schema.ResourceData,
 	// Set the media upload
 	uploadCall.Media(file, googleapi.ContentType("application/octet-stream"))
 
-	log.Printf("[DEBUG] Uploading file %q (size: %d bytes, hash: %s)", filePath, fileInfo.Size(), fileHash)
+	log.Printf("[DEBUG] Uploading file %q (size: %d bytes, hash: %s) for policy field %q", filePath, fileInfo.Size(), fileHash, policyField)
 
 	// Execute the upload
 	uploadResponse, err := uploadCall.Do()

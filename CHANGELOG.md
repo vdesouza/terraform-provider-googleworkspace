@@ -1,3 +1,8 @@
+## 1.2.5 (October 15, 2025)
+
+BUG FIXES:
+* asset file upload fix
+
 ## 1.2.4 (October 15, 2025)
 
 FEATURES:

@@ -245,7 +245,8 @@ func testAccCaptureAttribute(resourceName, attrName string, target *string) reso
 func testAccResourceChromePolicyFile_basic(filePath string) string {
 	return fmt.Sprintf(`
 resource "googleworkspace_chrome_policy_file" "test" {
-  file_path = %q
+  file_path    = %q
+  policy_field = "chrome.users.WallpaperImage.value"
 }
 `, filePath)
 }
@@ -253,7 +254,8 @@ resource "googleworkspace_chrome_policy_file" "test" {
 func testAccResourceChromePolicyFile_withPolicy(filePath, orgUnitId string) string {
 	return fmt.Sprintf(`
 resource "googleworkspace_chrome_policy_file" "test" {
-  file_path = %q
+  file_path    = %q
+  policy_field = "chrome.users.WallpaperImage.value"
 }
 
 resource "googleworkspace_chrome_policy" "wallpaper" {
