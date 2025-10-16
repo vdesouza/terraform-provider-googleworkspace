@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -120,14 +121,28 @@ func resourceChromePolicyFileCreate(ctx context.Context, d *schema.ResourceData,
 	// Create upload call with customer as parent
 	uploadCall := mediaService.Upload(fmt.Sprintf("customers/%s", client.Customer), uploadRequest)
 
-	// Set the media upload
-	uploadCall.Media(file, googleapi.ContentType("application/octet-stream"))
+	// Detect content type from file extension
+	contentType := "application/octet-stream"
+	if filepath.Ext(filePath) == ".jpg" || filepath.Ext(filePath) == ".jpeg" {
+		contentType = "image/jpeg"
+	} else if filepath.Ext(filePath) == ".png" {
+		contentType = "image/png"
+	}
 
-	log.Printf("[DEBUG] Uploading file %q (size: %d bytes, hash: %s) for policy field %q", filePath, fileInfo.Size(), fileHash, policyField)
+	// Set the media upload
+	uploadCall.Media(file, googleapi.ContentType(contentType))
+
+	log.Printf("[DEBUG] Uploading file %q (size: %d bytes, hash: %s, content-type: %s) for policy field %q",
+		filePath, fileInfo.Size(), fileHash, contentType, policyField)
 
 	// Execute the upload
 	uploadResponse, err := uploadCall.Do()
 	if err != nil {
+		// Try to get more details about the error
+		if apiErr, ok := err.(*googleapi.Error); ok {
+			log.Printf("[ERROR] API Error: Code=%d, Message=%s, Body=%s", apiErr.Code, apiErr.Message, string(apiErr.Body))
+			return diag.Errorf("failed to upload file (HTTP %d): %s - %s", apiErr.Code, apiErr.Message, string(apiErr.Body))
+		}
 		return diag.Errorf("failed to upload file: %v", err)
 	}
 
