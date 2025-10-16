@@ -1,3 +1,8 @@
+## 1.2.10 (October 15, 2025)
+
+FEATURE
+* Support secuirty groups through the googleworkspace_group resource, required cloudidentity api scope
+
 ## 1.2.9 (October 15, 2025)
 
 BUG FIXES:

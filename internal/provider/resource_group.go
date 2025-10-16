@@ -94,6 +94,14 @@ func resourceGroup() *schema.Resource {
 					Type: schema.TypeString,
 				},
 			},
+			"security_group": {
+				Description: "If true, adds the cloudidentity.googleapis.com/groups.security label to the group via the Cloud Identity API. " +
+					"This is an immutable change - once added, the security label cannot be removed. " +
+					"Requires the cloud-identity.groups OAuth scope.",
+				Type:     schema.TypeBool,
+				Optional: true,
+				Default:  false,
+			},
 		},
 	}
 }
@@ -190,6 +198,19 @@ func resourceGroupCreate(ctx context.Context, d *schema.ResourceData, meta inter
 
 	log.Printf("[DEBUG] Finished creating Group %q: %#v", d.Id(), email)
 
+	// Handle security label if requested
+	if d.Get("security_group").(bool) {
+		log.Printf("[DEBUG] Adding security label to Group %q", d.Id())
+		if err := addSecurityLabelToGroup(ctx, client, group.Email); err != nil {
+			// If we fail to add the security label, we should still return the group but warn the user
+			return append(diags, diag.Diagnostic{
+				Severity: diag.Warning,
+				Summary:  "Failed to add security label to group",
+				Detail:   fmt.Sprintf("Group was created successfully but failed to add security label: %v", err),
+			})
+		}
+	}
+
 	return resourceGroupRead(ctx, d, meta)
 }
 
@@ -222,6 +243,15 @@ func resourceGroupRead(ctx context.Context, d *schema.ResourceData, meta interfa
 	d.Set("aliases", group.Aliases)
 	d.Set("non_editable_aliases", group.NonEditableAliases)
 	d.Set("etag", group.Etag)
+
+	// Check if the group has a security label via Cloud Identity API
+	hasSecurityLabel, err := checkSecurityLabel(ctx, client, group.Email)
+	if err != nil {
+		log.Printf("[WARN] Failed to check security label for group %s: %v", group.Email, err)
+		// Don't fail the read, just log the warning
+	} else {
+		d.Set("security_group", hasSecurityLabel)
+	}
 
 	d.SetId(group.Id)
 
@@ -344,6 +374,34 @@ func resourceGroupUpdate(ctx context.Context, d *schema.ResourceData, meta inter
 
 	log.Printf("[DEBUG] Finished creating Group %q: %#v", d.Id(), email)
 
+	// Handle security label changes
+	if d.HasChange("security_group") {
+		old, new := d.GetChange("security_group")
+		oldValue := old.(bool)
+		newValue := new.(bool)
+
+		// Prevent removing the security label (it's immutable)
+		if oldValue && !newValue {
+			return append(diags, diag.Diagnostic{
+				Severity: diag.Error,
+				Summary:  "Cannot remove security label from group",
+				Detail:   "The security label is immutable and cannot be removed once added. You can only change it from false to true.",
+			})
+		}
+
+		// Add the security label if changed from false to true
+		if !oldValue && newValue {
+			log.Printf("[DEBUG] Adding security label to Group %q", d.Id())
+			if err := addSecurityLabelToGroup(ctx, client, email); err != nil {
+				return append(diags, diag.Diagnostic{
+					Severity: diag.Warning,
+					Summary:  "Failed to add security label to group",
+					Detail:   fmt.Sprintf("Group was updated successfully but failed to add security label: %v", err),
+				})
+			}
+		}
+	}
+
 	return resourceGroupRead(ctx, d, meta)
 }
 
@@ -374,4 +432,93 @@ func resourceGroupDelete(ctx context.Context, d *schema.ResourceData, meta inter
 	log.Printf("[DEBUG] Finished deleting Group %q: %#v", d.Id(), email)
 
 	return diags
+}
+
+// addSecurityLabelToGroup adds the security label to a group using the Cloud Identity API
+func addSecurityLabelToGroup(ctx context.Context, client *apiClient, groupEmail string) error {
+	cloudIdentityService, diags := client.NewCloudIdentityService()
+	if diags.HasError() {
+		return fmt.Errorf("failed to create Cloud Identity service: %v", diags)
+	}
+
+	groupsService, diags := GetCloudIdentityGroupsService(cloudIdentityService)
+	if diags.HasError() {
+		return fmt.Errorf("failed to get Cloud Identity groups service: %v", diags)
+	}
+
+	// Search for the group by email to get its resource name
+	searchResp, err := groupsService.Search().
+		Query(fmt.Sprintf("parent==customers/%s && groupKey.id=='%s'", client.Customer, groupEmail)).
+		View("FULL").
+		Do()
+	if err != nil {
+		return fmt.Errorf("failed to search for group: %v", err)
+	}
+
+	if len(searchResp.Groups) == 0 {
+		return fmt.Errorf("group not found in Cloud Identity")
+	}
+
+	group := searchResp.Groups[0]
+
+	// Check if the security label already exists
+	if group.Labels != nil {
+		if _, exists := group.Labels["cloudidentity.googleapis.com/groups.security"]; exists {
+			log.Printf("[DEBUG] Security label already exists on group %s", groupEmail)
+			return nil
+		}
+	}
+
+	// Add the security label
+	if group.Labels == nil {
+		group.Labels = make(map[string]string)
+	}
+	group.Labels["cloudidentity.googleapis.com/groups.security"] = ""
+
+	// Update the group with the new label
+	updateMask := "labels"
+	_, err = groupsService.Patch(group.Name, group).UpdateMask(updateMask).Do()
+	if err != nil {
+		return fmt.Errorf("failed to add security label: %v", err)
+	}
+
+	log.Printf("[DEBUG] Successfully added security label to group %s", groupEmail)
+	return nil
+}
+
+// checkSecurityLabel checks if a group has the security label via the Cloud Identity API
+func checkSecurityLabel(ctx context.Context, client *apiClient, groupEmail string) (bool, error) {
+	cloudIdentityService, diags := client.NewCloudIdentityService()
+	if diags.HasError() {
+		return false, fmt.Errorf("failed to create Cloud Identity service: %v", diags)
+	}
+
+	groupsService, diags := GetCloudIdentityGroupsService(cloudIdentityService)
+	if diags.HasError() {
+		return false, fmt.Errorf("failed to get Cloud Identity groups service: %v", diags)
+	}
+
+	// Search for the group by email to get its resource name
+	searchResp, err := groupsService.Search().
+		Query(fmt.Sprintf("parent==customers/%s && groupKey.id=='%s'", client.Customer, groupEmail)).
+		View("FULL").
+		Do()
+	if err != nil {
+		return false, fmt.Errorf("failed to search for group: %v", err)
+	}
+
+	if len(searchResp.Groups) == 0 {
+		return false, fmt.Errorf("group not found in Cloud Identity")
+	}
+
+	group := searchResp.Groups[0]
+
+	// Check if the security label exists
+	if group.Labels != nil {
+		if _, exists := group.Labels["cloudidentity.googleapis.com/groups.security"]; exists {
+			return true, nil
+		}
+	}
+
+	return false, nil
 }
