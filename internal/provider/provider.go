@@ -131,6 +131,7 @@ func New(version string) func() *schema.Provider {
 			},
 			ResourcesMap: map[string]*schema.Resource{
 				"googleworkspace_chrome_policy":       resourceChromePolicy(),
+				"googleworkspace_chrome_policy_file":  resourceChromePolicyFile(),
 				"googleworkspace_chrome_group_policy": resourceChromeGroupPolicy(),
 				"googleworkspace_domain":              resourceDomain(),
 				"googleworkspace_domain_alias":        resourceDomainAlias(),

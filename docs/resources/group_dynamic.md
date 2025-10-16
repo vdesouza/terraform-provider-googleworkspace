@@ -58,9 +58,7 @@ resource "googleworkspace_group_dynamic" "senior_engineers" {
     "department"   = ""
     "access_level" = ""
   }
-}
-
-# Example: Dynamic group based on custom schema
+} # Example: Dynamic group based on custom schema
 resource "googleworkspace_group_dynamic" "beta_testers" {
   email        = "beta-testers@example.com"
   display_name = "Beta Testers"

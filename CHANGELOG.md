@@ -1,3 +1,8 @@
+## 1.2.4 (October 15, 2025)
+
+FEATURES:
+* add Chrome policy file resource for uploading files to reference in chrome policies (ex: wallpapers)
+
 ## 1.2.3 (October 15, 2025)
 
 BUG FIXES:
