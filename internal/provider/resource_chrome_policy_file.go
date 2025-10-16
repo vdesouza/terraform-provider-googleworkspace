@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -122,9 +123,14 @@ func resourceChromePolicyFileCreate(ctx context.Context, d *schema.ResourceData,
 
 	// Detect content type from file extension
 	contentType := "application/octet-stream"
+	if filepath.Ext(filePath) == ".jpg" || filepath.Ext(filePath) == ".jpeg" {
+		contentType = "image/jpeg"
+	} else if filepath.Ext(filePath) == ".png" {
+		contentType = "image/png"
+	}
 
-	// Set the media upload using ResumableMedia instead of Media
-	// This uses a different upload protocol that may be more compatible
+	// Set the media upload using ResumableMedia instead of Media,
+	// the Google go pkg returns a JSON type error with Media
 	uploadCall.ResumableMedia(ctx, file, fileInfo.Size(), contentType)
 
 	log.Printf("[DEBUG] Uploading file %q (size: %d bytes, hash: %s, content-type: %s) for policy field %q",
