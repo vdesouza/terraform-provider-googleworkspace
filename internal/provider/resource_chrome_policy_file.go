@@ -129,8 +129,9 @@ func resourceChromePolicyFileCreate(ctx context.Context, d *schema.ResourceData,
 		contentType = "image/png"
 	}
 
-	// Set the media upload
-	uploadCall.Media(file, googleapi.ContentType(contentType))
+	// Set the media upload using ResumableMedia instead of Media
+	// This uses a different upload protocol that may be more compatible
+	uploadCall.ResumableMedia(ctx, file, fileInfo.Size(), contentType)
 
 	log.Printf("[DEBUG] Uploading file %q (size: %d bytes, hash: %s, content-type: %s) for policy field %q",
 		filePath, fileInfo.Size(), fileHash, contentType, policyField)
