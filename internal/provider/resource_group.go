@@ -464,21 +464,24 @@ func addSecurityLabelToGroup(ctx context.Context, client *apiClient, groupEmail 
 		return fmt.Errorf("failed to get Cloud Identity groups service: %v", diags)
 	}
 
-	// Search for the group by email to get its resource name
-	// The query format uses single = and space-separated conditions
-	searchResp, err := groupsService.Search().
-		Query(fmt.Sprintf("parent=customers/%s groupKey.id=%s", client.Customer, groupEmail)).
-		View("FULL").
+	// Use the lookup API to find the group by its email address
+	// This is more reliable than search and is the recommended approach
+	lookupResp, err := groupsService.Lookup().
+		GroupKeyId(groupEmail).
 		Do()
 	if err != nil {
-		return fmt.Errorf("failed to search for group: %v", err)
+		return fmt.Errorf("failed to lookup group: %v", err)
 	}
 
-	if len(searchResp.Groups) == 0 {
+	if lookupResp.Name == "" {
 		return fmt.Errorf("group not found in Cloud Identity")
 	}
 
-	group := searchResp.Groups[0]
+	// Get the full group details to check and update labels
+	group, err := groupsService.Get(lookupResp.Name).Do()
+	if err != nil {
+		return fmt.Errorf("failed to get group details: %v", err)
+	}
 
 	// Check if the security label already exists
 	if group.Labels != nil {
@@ -517,21 +520,24 @@ func checkSecurityLabel(ctx context.Context, client *apiClient, groupEmail strin
 		return false, fmt.Errorf("failed to get Cloud Identity groups service: %v", diags)
 	}
 
-	// Search for the group by email to get its resource name
-	// The query format uses single = and space-separated conditions
-	searchResp, err := groupsService.Search().
-		Query(fmt.Sprintf("parent=customers/%s groupKey.id=%s", client.Customer, groupEmail)).
-		View("FULL").
+	// Use the lookup API to find the group by its email address
+	// This is more reliable than search and is the recommended approach
+	lookupResp, err := groupsService.Lookup().
+		GroupKeyId(groupEmail).
 		Do()
 	if err != nil {
-		return false, fmt.Errorf("failed to search for group: %v", err)
+		return false, fmt.Errorf("failed to lookup group: %v", err)
 	}
 
-	if len(searchResp.Groups) == 0 {
+	if lookupResp.Name == "" {
 		return false, fmt.Errorf("group not found in Cloud Identity")
 	}
 
-	group := searchResp.Groups[0]
+	// Get the full group details to check labels
+	group, err := groupsService.Get(lookupResp.Name).Do()
+	if err != nil {
+		return false, fmt.Errorf("failed to get group details: %v", err)
+	}
 
 	// Check if the security label exists
 	if group.Labels != nil {
