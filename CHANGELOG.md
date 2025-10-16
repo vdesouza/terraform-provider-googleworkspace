@@ -1,4 +1,4 @@
-## 1.2.8 (October 15, 2025)
+## 1.2.9 (October 15, 2025)
 
 BUG FIXES:
 * add debug logs
