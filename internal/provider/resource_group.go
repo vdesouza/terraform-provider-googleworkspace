@@ -202,16 +202,20 @@ func resourceGroupCreate(ctx context.Context, d *schema.ResourceData, meta inter
 	if d.Get("security_group").(bool) {
 		log.Printf("[DEBUG] Adding security label to Group %q", d.Id())
 		if err := addSecurityLabelToGroup(ctx, client, group.Email); err != nil {
-			// If we fail to add the security label, we should still return the group but warn the user
-			return append(diags, diag.Diagnostic{
+			// Log the error but continue to read the actual state
+			log.Printf("[WARN] Failed to add security label to group %s: %v", group.Email, err)
+			diags = append(diags, diag.Diagnostic{
 				Severity: diag.Warning,
 				Summary:  "Failed to add security label to group",
-				Detail:   fmt.Sprintf("Group was created successfully but failed to add security label: %v", err),
+				Detail:   fmt.Sprintf("Group was created successfully but failed to add security label: %v. The state will reflect the actual label status.", err),
 			})
 		}
 	}
 
-	return resourceGroupRead(ctx, d, meta)
+	// Always read to ensure state matches reality, especially for security label
+	readDiags := resourceGroupRead(ctx, d, meta)
+	diags = append(diags, readDiags...)
+	return diags
 }
 
 func resourceGroupRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
@@ -244,13 +248,22 @@ func resourceGroupRead(ctx context.Context, d *schema.ResourceData, meta interfa
 	d.Set("non_editable_aliases", group.NonEditableAliases)
 	d.Set("etag", group.Etag)
 
-	// Check if the group has a security label via Cloud Identity API
+	// Always check if the group has a security label via Cloud Identity API
+	// This ensures the state always reflects reality
 	hasSecurityLabel, err := checkSecurityLabel(ctx, client, group.Email)
 	if err != nil {
 		log.Printf("[WARN] Failed to check security label for group %s: %v", group.Email, err)
-		// Don't fail the read, just log the warning
+		// Add a warning diagnostic but don't fail the read
+		diags = append(diags, diag.Diagnostic{
+			Severity: diag.Warning,
+			Summary:  "Unable to verify security label status",
+			Detail:   fmt.Sprintf("Could not verify if group has security label via Cloud Identity API: %v. The security_group attribute may not reflect the current state.", err),
+		})
+		// Keep the current state value if we can't verify
 	} else {
+		// Always update the state to match reality
 		d.Set("security_group", hasSecurityLabel)
+		log.Printf("[DEBUG] Group %s security label status: %v", group.Email, hasSecurityLabel)
 	}
 
 	d.SetId(group.Id)
@@ -393,16 +406,21 @@ func resourceGroupUpdate(ctx context.Context, d *schema.ResourceData, meta inter
 		if !oldValue && newValue {
 			log.Printf("[DEBUG] Adding security label to Group %q", d.Id())
 			if err := addSecurityLabelToGroup(ctx, client, email); err != nil {
-				return append(diags, diag.Diagnostic{
+				// Log the error but continue to read the actual state
+				log.Printf("[WARN] Failed to add security label to group %s: %v", email, err)
+				diags = append(diags, diag.Diagnostic{
 					Severity: diag.Warning,
 					Summary:  "Failed to add security label to group",
-					Detail:   fmt.Sprintf("Group was updated successfully but failed to add security label: %v", err),
+					Detail:   fmt.Sprintf("Group was updated successfully but failed to add security label: %v. The state will reflect the actual label status.", err),
 				})
 			}
 		}
 	}
 
-	return resourceGroupRead(ctx, d, meta)
+	// Always read to ensure state matches reality, especially for security label
+	readDiags := resourceGroupRead(ctx, d, meta)
+	diags = append(diags, readDiags...)
+	return diags
 }
 
 func resourceGroupDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
