@@ -2,6 +2,7 @@ package googleworkspace
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"strings"
@@ -175,7 +176,7 @@ func resourceGroupDynamicCreate(ctx context.Context, d *schema.ResourceData, met
 			Queries: []*cloudidentity.DynamicGroupQuery{
 				{
 					ResourceType: "USER",
-					Query: query,
+					Query:        query,
 				},
 			},
 		},
@@ -197,15 +198,31 @@ func resourceGroupDynamicCreate(ctx context.Context, d *schema.ResourceData, met
 	// Create the group
 	// Note: Dynamic groups must use EMPTY config, not WITH_INITIAL_OWNER
 	// because membership is controlled entirely by the query
-	createdGroup, err := groupsService.Create(group).InitialGroupConfig("EMPTY").Do()
+	operation, err := groupsService.Create(group).InitialGroupConfig("EMPTY").Do()
 	if err != nil {
 		return diag.Errorf("failed to create dynamic group: %v", err)
 	}
 
-	// Extract the group ID from the name (format: groups/{group_id})
-	d.SetId(createdGroup.Name)
+	// The Create operation returns a long-running operation
+	// We need to extract the actual group from the operation response
+	if !operation.Done {
+		return diag.Errorf("create operation is not complete (this shouldn't happen for group creation)")
+	}
 
-	log.Printf("[DEBUG] Finished creating Dynamic Group %q with name: %s", email, createdGroup.Name)
+	// Extract the group from the operation response
+	// The Response field is a RawMessage (JSON) that we need to unmarshal
+	var createdGroup cloudidentity.Group
+	if operation.Response != nil {
+		if err := json.Unmarshal(operation.Response, &createdGroup); err != nil {
+			return diag.Errorf("failed to unmarshal group from create operation response: %v", err)
+		}
+
+		// Set the ID to the group name (format: groups/{group_id})
+		d.SetId(createdGroup.Name)
+		log.Printf("[DEBUG] Finished creating Dynamic Group %q with name: %s", email, createdGroup.Name)
+	} else {
+		return diag.Errorf("create operation response is nil")
+	}
 
 	return resourceGroupDynamicRead(ctx, d, meta)
 }
@@ -336,7 +353,7 @@ func resourceGroupDynamicUpdate(ctx context.Context, d *schema.ResourceData, met
 			Queries: []*cloudidentity.DynamicGroupQuery{
 				{
 					ResourceType: "USER",
-					Query: query,
+					Query:        query,
 				},
 			},
 		}
