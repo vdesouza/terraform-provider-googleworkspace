@@ -207,22 +207,6 @@ func resourceGroupDynamicCreate(ctx context.Context, d *schema.ResourceData, met
 
 	log.Printf("[DEBUG] Finished creating Dynamic Group %q with name: %s", email, createdGroup.Name)
 
-	// Wait for the group to be fully created
-	err = retryTimeDuration(ctx, d.Timeout(schema.TimeoutCreate), func() error {
-		_, retryErr := groupsService.Get(createdGroup.Name).Do()
-		if retryErr != nil {
-			if isNotFound(retryErr) {
-				return fmt.Errorf("group not ready yet")
-			}
-			return fmt.Errorf("error checking group status: %v", retryErr)
-		}
-		return nil
-	})
-
-	if err != nil {
-		return diag.FromErr(fmt.Errorf("timed out waiting for group to be created: %v", err))
-	}
-
 	return resourceGroupDynamicRead(ctx, d, meta)
 }
 
