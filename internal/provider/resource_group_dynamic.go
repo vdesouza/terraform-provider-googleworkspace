@@ -174,6 +174,7 @@ func resourceGroupDynamicCreate(ctx context.Context, d *schema.ResourceData, met
 		DynamicGroupMetadata: &cloudidentity.DynamicGroupMetadata{
 			Queries: []*cloudidentity.DynamicGroupQuery{
 				{
+					ResourceType: "USER",
 					Query: query,
 				},
 			},
@@ -350,6 +351,7 @@ func resourceGroupDynamicUpdate(ctx context.Context, d *schema.ResourceData, met
 		group.DynamicGroupMetadata = &cloudidentity.DynamicGroupMetadata{
 			Queries: []*cloudidentity.DynamicGroupQuery{
 				{
+					ResourceType: "USER",
 					Query: query,
 				},
 			},

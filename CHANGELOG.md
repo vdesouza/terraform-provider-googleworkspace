@@ -1,3 +1,9 @@
+## 1.2.15 (October 16, 2025)
+
+BUG FIX
+* Dynamic group creation bug fix
+
+
 ## 1.2.14 (October 16, 2025)
 
 FEATURE
