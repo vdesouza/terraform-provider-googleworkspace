@@ -257,8 +257,17 @@ func chromePolicyReadCommon(ctx context.Context, d *schema.ResourceData, meta in
 			return diag.FromErr(err)
 		}
 
+		// Handle cases where policy might not exist or has been deleted
+		// This can happen when removing a resource from terraform config
+		if len(resp.ResolvedPolicies) == 0 {
+			log.Printf("[DEBUG] No resolved policies found for schema %s - policy may have been deleted", schemaName)
+			// Skip this policy - it doesn't exist in Google anymore
+			continue
+		}
+
 		if len(resp.ResolvedPolicies) != 1 {
-			return diag.Errorf("unexpected number of resolved policies for schema: %s", schemaName)
+			log.Printf("[WARN] Expected 1 resolved policy for schema %s, got %d", schemaName, len(resp.ResolvedPolicies))
+			// Use the first policy if multiple are returned
 		}
 
 		value := resp.ResolvedPolicies[0].Value

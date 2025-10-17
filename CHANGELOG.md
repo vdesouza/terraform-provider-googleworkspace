@@ -1,3 +1,8 @@
+## 1.2.18 (October 17, 2025)
+
+BUG FIX
+* Fix state change detection
+
 ## 1.2.17 (October 16, 2025)
 
 BUG FIX
