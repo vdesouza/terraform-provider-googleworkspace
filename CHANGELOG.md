@@ -1,3 +1,8 @@
+## 1.2.19 (October 17, 2025)
+
+IMPROVEMENTS
+* Slight refactor (removed chrome policy common as the code is not really common between group and org unit API calls) and cleaned up warnings
+
 ## 1.2.18 (October 17, 2025)
 
 BUG FIX

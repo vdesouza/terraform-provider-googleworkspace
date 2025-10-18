@@ -1001,7 +1001,7 @@ func resourceUser() *schema.Resource {
 	}
 }
 
-func resourceUserCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+func resourceUserCreate(ctx context.Context, d *schema.ResourceData, meta any) diag.Diagnostics {
 	var diags diag.Diagnostics
 
 	// use the meta value to retrieve your client from the provider configure method
@@ -1010,7 +1010,7 @@ func resourceUserCreate(ctx context.Context, d *schema.ResourceData, meta interf
 	if d.Get("password").(string) == "" {
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
-			Summary:  fmt.Sprintf("Password is required when creating a new user"),
+			Summary:  "Password is required when creating a new user",
 		})
 
 		return diags

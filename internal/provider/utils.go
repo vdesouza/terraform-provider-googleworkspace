@@ -2,7 +2,6 @@ package googleworkspace
 
 import (
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net/mail"
 	"os"
@@ -42,7 +41,7 @@ func pathOrContents(poc string) (string, bool, error) {
 	}
 
 	if _, err := os.Stat(path); err == nil {
-		contents, err := ioutil.ReadFile(path)
+		contents, err := os.ReadFile(path)
 		if err != nil {
 			return string(contents), true, err
 		}
@@ -202,8 +201,5 @@ func sortListOfInterfaces(v []interface{}) []string {
 // isEmail returns a boolean indicating if the input string is parsable as an email
 func isEmail(input string) bool {
 	_, err := mail.ParseAddress(input)
-	if err != nil {
-		return false
-	}
-	return true
+	return err == nil
 }

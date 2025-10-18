@@ -202,8 +202,8 @@ func resourceGroupMembersRead(ctx context.Context, d *schema.ResourceData, meta 
 	membersCall := membersService.List(groupId).MaxResults(200).IncludeDerivedMembership(includeDerivedMembership)
 
 	err := membersCall.Pages(ctx, func(resp *directory.Members) error {
-		for _, member := range resp.Members {
-			result = append(result, member)
+		if len(resp.Members) > 0 {
+			result = append(result, resp.Members...)
 		}
 
 		return nil
@@ -383,7 +383,7 @@ func resourceGroupMembersImport(ctx context.Context, d *schema.ResourceData, met
 
 	// id is of format "groups/<group_id>"
 	if len(parts) != 2 {
-		return nil, fmt.Errorf("Group Member Id (%s) is not of the correct format (groups/<group_id>)", d.Id())
+		return nil, fmt.Errorf("group member id (%s) is not of the correct format (groups/<group_id>)", d.Id())
 	}
 
 	d.Set("group_id", parts[1])
