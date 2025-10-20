@@ -206,6 +206,12 @@ func resourceChromeGroupPolicyUpdate(ctx context.Context, d *schema.ResourceData
 			return retryErr
 		})
 		if err != nil {
+			// Ignore errors about apps not being installed - this happens when trying to delete
+			// policies for apps that were never actually installed/registered
+			if isApiErrorWithCode(err, 400) && strings.Contains(err.Error(), "apps are not installed") {
+				log.Printf("[DEBUG] Skipping delete for policy %s - app not installed: %v", schemaName, err)
+				continue
+			}
 			return diag.FromErr(err)
 		}
 	}
@@ -331,6 +337,12 @@ func resourceChromeGroupPolicyDelete(ctx context.Context, d *schema.ResourceData
 			return retryErr
 		})
 		if err != nil {
+			// Ignore errors about apps not being installed - this happens when trying to delete
+			// policies for apps that were never actually installed/registered
+			if isApiErrorWithCode(err, 400) && strings.Contains(err.Error(), "apps are not installed") {
+				log.Printf("[DEBUG] Skipping delete for policy %s - app not installed: %v", schemaName, err)
+				continue
+			}
 			return diag.FromErr(err)
 		}
 	}
