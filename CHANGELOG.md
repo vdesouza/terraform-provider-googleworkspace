@@ -1,3 +1,9 @@
+## 1.2.22 (October 20, 2025)
+
+BUG FIX
+* Fix update state handling
+
+
 ## 1.2.21 (October 20, 2025)
 
 BUG FIX

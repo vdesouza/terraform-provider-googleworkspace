@@ -162,62 +162,62 @@ func resourceChromeGroupPolicyCreate(ctx context.Context, d *schema.ResourceData
 }
 
 func resourceChromeGroupPolicyUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	client := meta.(*apiClient)
+	// client := meta.(*apiClient)
 
-	chromePolicyService, diags := client.NewChromePolicyService()
-	if diags.HasError() {
-		return diags
-	}
+	// _, diags := client.NewChromePolicyService()
+	// if diags.HasError() {
+	// 	return diags
+	// }
 
-	chromePoliciesService, diags := GetChromePoliciesService(chromePolicyService)
-	if diags.HasError() {
-		return diags
-	}
+	// chromePoliciesService, diags := GetChromePoliciesService(chromePolicyService)
+	// if diags.HasError() {
+	// 	return diags
+	// }
 
-	log.Printf("[DEBUG] Updating Chrome Policy for groups:%s", d.Id())
+	// log.Printf("[DEBUG] Updating Chrome Policy for groups:%s", d.Id())
 
-	policyTargetKey := &chromepolicy.GoogleChromePolicyVersionsV1PolicyTargetKey{
-		TargetResource: "groups/" + d.Id(),
-	}
+	// policyTargetKey := &chromepolicy.GoogleChromePolicyVersionsV1PolicyTargetKey{
+	// 	TargetResource: "groups/" + d.Id(),
+	// }
 
-	if _, ok := d.GetOk("additional_target_keys"); ok {
-		policyTargetKey.AdditionalTargetKeys = expandChromePoliciesAdditionalTargetKeys(d.Get("additional_target_keys").([]interface{}))
-	}
+	// if _, ok := d.GetOk("additional_target_keys"); ok {
+	// 	policyTargetKey.AdditionalTargetKeys = expandChromePoliciesAdditionalTargetKeys(d.Get("additional_target_keys").([]interface{}))
+	// }
 
-	old, _ := d.GetChange("policies")
+	// old, _ := d.GetChange("policies")
 
 	// For groups, delete old policies before applying new ones
 	// Workaround: send only one policy per batch delete call
-	for _, p := range old.([]interface{}) {
-		policy := p.(map[string]interface{})
-		schemaName := policy["schema_name"].(string)
+	// for _, p := range old.([]interface{}) {
+	// 	policy := p.(map[string]interface{})
+	// 	schemaName := policy["schema_name"].(string)
 
-		deleteReq := &chromepolicy.GoogleChromePolicyVersionsV1DeleteGroupPolicyRequest{
-			PolicyTargetKey: policyTargetKey,
-			PolicySchema:    schemaName,
-		}
+	// 	deleteReq := &chromepolicy.GoogleChromePolicyVersionsV1DeleteGroupPolicyRequest{
+	// 		PolicyTargetKey: policyTargetKey,
+	// 		PolicySchema:    schemaName,
+	// 	}
 
-		batchReq := &chromepolicy.GoogleChromePolicyVersionsV1BatchDeleteGroupPoliciesRequest{
-			Requests: []*chromepolicy.GoogleChromePolicyVersionsV1DeleteGroupPolicyRequest{deleteReq},
-		}
+	// 	batchReq := &chromepolicy.GoogleChromePolicyVersionsV1BatchDeleteGroupPoliciesRequest{
+	// 		Requests: []*chromepolicy.GoogleChromePolicyVersionsV1DeleteGroupPolicyRequest{deleteReq},
+	// 	}
 
-		err := retryTimeDuration(ctx, time.Minute, func() error {
-			_, retryErr := chromePoliciesService.Groups.BatchDelete(fmt.Sprintf("customers/%s", client.Customer), batchReq).Do()
-			return retryErr
-		})
-		if err != nil {
-			// Ignore errors about apps not being installed - this happens when trying to delete
-			// policies for apps that were never actually installed/registered
-			if isApiErrorWithCode(err, 400) && strings.Contains(err.Error(), "apps are not installed") {
-				log.Printf("[DEBUG] Skipping delete for policy %s - app not installed: %v", schemaName, err)
-				continue
-			}
-			return diag.FromErr(err)
-		}
-	}
+	// 	err := retryTimeDuration(ctx, time.Minute, func() error {
+	// 		_, retryErr := chromePoliciesService.Groups.BatchDelete(fmt.Sprintf("customers/%s", client.Customer), batchReq).Do()
+	// 		return retryErr
+	// 	})
+	// 	if err != nil {
+	// 		// Ignore errors about apps not being installed - this happens when trying to delete
+	// 		// policies for apps that were never actually installed/registered
+	// 		if isApiErrorWithCode(err, 400) && strings.Contains(err.Error(), "apps are not installed") {
+	// 			log.Printf("[DEBUG] Skipping delete for policy %s - app not installed: %v", schemaName, err)
+	// 			continue
+	// 		}
+	// 		return diag.FromErr(err)
+	// 	}
+	// }
 
 	// Re-run create logic to apply the new set
-	diags = resourceChromeGroupPolicyCreate(ctx, d, meta)
+	diags := resourceChromeGroupPolicyCreate(ctx, d, meta)
 	if diags.HasError() {
 		return diags
 	}
