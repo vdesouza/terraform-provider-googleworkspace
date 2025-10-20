@@ -1,4 +1,4 @@
-## 1.2.25 (October 20, 2025)
+## 1.2.26 (October 20, 2025)
 
 BUG FIX
 * Fix update state handling with additional_target_keys
