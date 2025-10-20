@@ -245,7 +245,8 @@ func resourceChromePolicyRead(ctx context.Context, d *schema.ResourceData, meta 
 			return retryErr
 		})
 		if err != nil {
-			return diag.FromErr(err)
+			// Check if it's a 404 error - the orgunit or policy was deleted outside of Terraform
+			return handleNotFoundError(err, d, fmt.Sprintf("Chrome Policy %s", d.Id()))
 		}
 
 		// Handle cases where policy might not exist or has been deleted
