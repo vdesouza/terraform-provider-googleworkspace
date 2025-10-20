@@ -117,41 +117,112 @@ func resourceChromeGroupPolicyCreate(ctx context.Context, d *schema.ResourceData
 
 	log.Printf("[DEBUG] Expanded policies: %+v", policies)
 
-	// Process group based policies
-	// Make individual API calls for each policy instead of batching
-	// This works around an issue where batch requests fail with multiple policies
-	for _, p := range policies {
-		var keys []string
-		var schemaValues map[string]interface{}
-		if err := json.Unmarshal(p.Value, &schemaValues); err != nil {
-			return diag.FromErr(err)
-		}
-		for key := range schemaValues {
-			keys = append(keys, key)
-		}
-		req := &chromepolicy.GoogleChromePolicyVersionsV1ModifyGroupPolicyRequest{
-			PolicyTargetKey: policyTargetKey,
-			PolicyValue:     p,
-			UpdateMask:      strings.Join(keys, ","),
-		}
-		log.Printf("[DEBUG] Group policy request: %+v", req)
-		log.Printf("[DEBUG] Group policy value: %+v", p)
-		log.Printf("[DEBUG] Group policy value (raw bytes): %s", string(p.Value))
-		log.Printf("[DEBUG] Group policy schema: %s", p.PolicySchema)
-		log.Printf("[DEBUG] Update mask: %s", strings.Join(keys, ","))
+	// Check if we have additional_target_keys
+	additionalTargetKeysRaw, hasAdditionalKeys := d.GetOk("additional_target_keys")
 
-		// Make individual call
-		batchReq := &chromepolicy.GoogleChromePolicyVersionsV1BatchModifyGroupPoliciesRequest{
-			Requests: []*chromepolicy.GoogleChromePolicyVersionsV1ModifyGroupPolicyRequest{req},
+	if !hasAdditionalKeys {
+		// No additional_target_keys: make individual call for each policy
+		log.Printf("[DEBUG] No additional_target_keys - processing policies individually")
+		for _, p := range policies {
+			policyTargetKey := &chromepolicy.GoogleChromePolicyVersionsV1PolicyTargetKey{
+				TargetResource: "groups/" + targetID,
+			}
+
+			var keys []string
+			var schemaValues map[string]interface{}
+			if err := json.Unmarshal(p.Value, &schemaValues); err != nil {
+				return diag.FromErr(err)
+			}
+			for key := range schemaValues {
+				keys = append(keys, key)
+			}
+
+			req := &chromepolicy.GoogleChromePolicyVersionsV1ModifyGroupPolicyRequest{
+				PolicyTargetKey: policyTargetKey,
+				PolicyValue:     p,
+				UpdateMask:      strings.Join(keys, ","),
+			}
+
+			batchReq := &chromepolicy.GoogleChromePolicyVersionsV1BatchModifyGroupPoliciesRequest{
+				Requests: []*chromepolicy.GoogleChromePolicyVersionsV1ModifyGroupPolicyRequest{req},
+			}
+
+			err := retryTimeDuration(ctx, time.Minute, func() error {
+				_, retryErr := chromePoliciesService.Groups.BatchModify(fmt.Sprintf("customers/%s", client.Customer), batchReq).Do()
+				return retryErr
+			})
+
+			if err != nil {
+				return diag.FromErr(err)
+			}
+		}
+	} else {
+		// Have additional_target_keys: group by target_key
+		additionalTargetKeysList := additionalTargetKeysRaw.([]interface{})
+
+		// Group additional_target_keys by their target_key
+		keyGroups := make(map[string][]map[string]string)
+		for _, k := range additionalTargetKeysList {
+			targetKeyDef := k.(map[string]interface{})
+			targetKeyName := targetKeyDef["target_key"].(string)
+			targetKeyValue := targetKeyDef["target_value"].(string)
+
+			keyGroups[targetKeyName] = append(keyGroups[targetKeyName], map[string]string{
+				"key":   targetKeyName,
+				"value": targetKeyValue,
+			})
 		}
 
-		err := retryTimeDuration(ctx, time.Minute, func() error {
-			_, retryErr := chromePoliciesService.Groups.BatchModify(fmt.Sprintf("customers/%s", client.Customer), batchReq).Do()
-			return retryErr
-		})
+		log.Printf("[DEBUG] Grouped additional_target_keys by target_key: %d groups", len(keyGroups))
 
-		if err != nil {
-			return diag.FromErr(err)
+		// Process each group of target_keys
+		for targetKeyName, keyValuePairs := range keyGroups {
+			log.Printf("[DEBUG] Processing target_key group: %s with %d values", targetKeyName, len(keyValuePairs))
+
+			// For each value in this target_key group, create requests for all policies
+			for _, keyValuePair := range keyValuePairs {
+				policyTargetKey := &chromepolicy.GoogleChromePolicyVersionsV1PolicyTargetKey{
+					TargetResource: "groups/" + targetID,
+					AdditionalTargetKeys: map[string]string{
+						keyValuePair["key"]: keyValuePair["value"],
+					},
+				}
+
+				var requests []*chromepolicy.GoogleChromePolicyVersionsV1ModifyGroupPolicyRequest
+				for _, p := range policies {
+					var keys []string
+					var schemaValues map[string]interface{}
+					if err := json.Unmarshal(p.Value, &schemaValues); err != nil {
+						return diag.FromErr(err)
+					}
+					for key := range schemaValues {
+						keys = append(keys, key)
+					}
+
+					req := &chromepolicy.GoogleChromePolicyVersionsV1ModifyGroupPolicyRequest{
+						PolicyTargetKey: policyTargetKey,
+						PolicyValue:     p,
+						UpdateMask:      strings.Join(keys, ","),
+					}
+					requests = append(requests, req)
+				}
+
+				// Batch all policies for this specific additional_target_key value
+				batchReq := &chromepolicy.GoogleChromePolicyVersionsV1BatchModifyGroupPoliciesRequest{
+					Requests: requests,
+				}
+
+				log.Printf("[DEBUG] Batching %d policies for %s=%s", len(requests), keyValuePair["key"], keyValuePair["value"])
+
+				err := retryTimeDuration(ctx, time.Minute, func() error {
+					_, retryErr := chromePoliciesService.Groups.BatchModify(fmt.Sprintf("customers/%s", client.Customer), batchReq).Do()
+					return retryErr
+				})
+
+				if err != nil {
+					return diag.FromErr(err)
+				}
+			}
 		}
 	}
 
@@ -313,37 +384,105 @@ func resourceChromeGroupPolicyDelete(ctx context.Context, d *schema.ResourceData
 
 	log.Printf("[DEBUG] Deleting Chrome Policy for groups:%s", d.Id())
 
-	policyTargetKey := &chromepolicy.GoogleChromePolicyVersionsV1PolicyTargetKey{
-		TargetResource: "groups/" + d.Id(),
-	}
+	// Check if we have additional_target_keys
+	additionalTargetKeysRaw, hasAdditionalKeys := d.GetOk("additional_target_keys")
 
-	if _, ok := d.GetOk("additional_target_keys"); ok {
-		policyTargetKey.AdditionalTargetKeys = expandChromePoliciesAdditionalTargetKeys(d.Get("additional_target_keys").([]interface{}))
-	}
+	if !hasAdditionalKeys {
+		// No additional target keys - delete policies individually
+		policyTargetKey := &chromepolicy.GoogleChromePolicyVersionsV1PolicyTargetKey{
+			TargetResource: "groups/" + d.Id(),
+		}
 
-	// Workaround: send only one policy per batch delete call
-	for _, p := range d.Get("policies").([]interface{}) {
-		policy := p.(map[string]interface{})
-		schemaName := policy["schema_name"].(string)
-		deleteReq := &chromepolicy.GoogleChromePolicyVersionsV1DeleteGroupPolicyRequest{
-			PolicyTargetKey: policyTargetKey,
-			PolicySchema:    schemaName,
-		}
-		batchReq := &chromepolicy.GoogleChromePolicyVersionsV1BatchDeleteGroupPoliciesRequest{
-			Requests: []*chromepolicy.GoogleChromePolicyVersionsV1DeleteGroupPolicyRequest{deleteReq},
-		}
-		err := retryTimeDuration(ctx, time.Minute, func() error {
-			_, retryErr := chromePoliciesService.Groups.BatchDelete(fmt.Sprintf("customers/%s", client.Customer), batchReq).Do()
-			return retryErr
-		})
-		if err != nil {
-			// Ignore errors about apps not being installed - this happens when trying to delete
-			// policies for apps that were never actually installed/registered
-			if isApiErrorWithCode(err, 400) && strings.Contains(err.Error(), "apps are not installed") {
-				log.Printf("[DEBUG] Skipping delete for policy %s - app not installed: %v", schemaName, err)
-				continue
+		// Workaround: send only one policy per batch delete call
+		for _, p := range d.Get("policies").([]interface{}) {
+			policy := p.(map[string]interface{})
+			schemaName := policy["schema_name"].(string)
+			deleteReq := &chromepolicy.GoogleChromePolicyVersionsV1DeleteGroupPolicyRequest{
+				PolicyTargetKey: policyTargetKey,
+				PolicySchema:    schemaName,
 			}
-			return diag.FromErr(err)
+			batchReq := &chromepolicy.GoogleChromePolicyVersionsV1BatchDeleteGroupPoliciesRequest{
+				Requests: []*chromepolicy.GoogleChromePolicyVersionsV1DeleteGroupPolicyRequest{deleteReq},
+			}
+			err := retryTimeDuration(ctx, time.Minute, func() error {
+				_, retryErr := chromePoliciesService.Groups.BatchDelete(fmt.Sprintf("customers/%s", client.Customer), batchReq).Do()
+				return retryErr
+			})
+			if err != nil {
+				// Ignore errors about apps not being installed - this happens when trying to delete
+				// policies for apps that were never actually installed/registered
+				if isApiErrorWithCode(err, 400) && strings.Contains(err.Error(), "apps are not installed") {
+					log.Printf("[DEBUG] Skipping delete for policy %s - app not installed: %v", schemaName, err)
+					continue
+				}
+				return diag.FromErr(err)
+			}
+		}
+	} else {
+		// Have additional_target_keys: group by target_key
+		additionalTargetKeysList := additionalTargetKeysRaw.([]interface{})
+
+		// Group additional_target_keys by their target_key
+		keyGroups := make(map[string][]map[string]string)
+		for _, k := range additionalTargetKeysList {
+			targetKeyDef := k.(map[string]interface{})
+			targetKeyName := targetKeyDef["target_key"].(string)
+			targetKeyValue := targetKeyDef["target_value"].(string)
+
+			keyGroups[targetKeyName] = append(keyGroups[targetKeyName], map[string]string{
+				"key":   targetKeyName,
+				"value": targetKeyValue,
+			})
+		}
+
+		log.Printf("[DEBUG] Grouped additional_target_keys into %d groups", len(keyGroups))
+
+		// For each unique target_key, batch all policies for each unique target_value
+		for targetKey, keyValuePairs := range keyGroups {
+			log.Printf("[DEBUG] Processing target_key: %s with %d target_values", targetKey, len(keyValuePairs))
+
+			for _, keyValuePair := range keyValuePairs {
+				log.Printf("[DEBUG] Batching policies for deletion: target_key=%s, target_value=%s", keyValuePair["key"], keyValuePair["value"])
+
+				policyTargetKey := &chromepolicy.GoogleChromePolicyVersionsV1PolicyTargetKey{
+					TargetResource: "groups/" + d.Id(),
+					AdditionalTargetKeys: map[string]string{
+						keyValuePair["key"]: keyValuePair["value"],
+					},
+				}
+
+				// Batch delete all policies for this specific additional_target_key value
+				var deleteRequests []*chromepolicy.GoogleChromePolicyVersionsV1DeleteGroupPolicyRequest
+				for _, p := range d.Get("policies").([]interface{}) {
+					policy := p.(map[string]interface{})
+					schemaName := policy["schema_name"].(string)
+
+					deleteRequests = append(deleteRequests, &chromepolicy.GoogleChromePolicyVersionsV1DeleteGroupPolicyRequest{
+						PolicyTargetKey: policyTargetKey,
+						PolicySchema:    schemaName,
+					})
+				}
+
+				batchReq := &chromepolicy.GoogleChromePolicyVersionsV1BatchDeleteGroupPoliciesRequest{
+					Requests: deleteRequests,
+				}
+
+				log.Printf("[DEBUG] Making BatchDelete call for target_key=%s, target_value=%s with %d policies", keyValuePair["key"], keyValuePair["value"], len(deleteRequests))
+
+				err := retryTimeDuration(ctx, time.Minute, func() error {
+					_, retryErr := chromePoliciesService.Groups.BatchDelete(fmt.Sprintf("customers/%s", client.Customer), batchReq).Do()
+					return retryErr
+				})
+				if err != nil {
+					// Ignore 400 errors about apps not being installed - this happens when deleting policies for apps
+					// that were uninstalled from the domain
+					if isApiErrorWithCode(err, 400) && strings.Contains(err.Error(), "apps are not installed") {
+						log.Printf("[DEBUG] Ignoring error about apps not being installed during policy deletion for %s=%s: %v", keyValuePair["key"], keyValuePair["value"], err)
+					} else {
+						return diag.FromErr(err)
+					}
+				}
+			}
 		}
 	}
 

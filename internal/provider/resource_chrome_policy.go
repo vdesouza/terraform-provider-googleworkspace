@@ -120,30 +120,109 @@ func resourceChromePolicyCreate(ctx context.Context, d *schema.ResourceData, met
 
 	log.Printf("[DEBUG] Expanded policies: %+v", policies)
 
-	// Process org unit based policies
-	var requests []*chromepolicy.GoogleChromePolicyVersionsV1ModifyOrgUnitPolicyRequest
-	for _, p := range policies {
-		var keys []string
-		var schemaValues map[string]interface{}
-		if err := json.Unmarshal(p.Value, &schemaValues); err != nil {
+	// Check if we have additional_target_keys
+	additionalTargetKeysRaw, hasAdditionalKeys := d.GetOk("additional_target_keys")
+
+	if !hasAdditionalKeys {
+		// No additional_target_keys: batch all policies together
+		log.Printf("[DEBUG] No additional_target_keys - batching all policies together")
+
+		policyTargetKey := &chromepolicy.GoogleChromePolicyVersionsV1PolicyTargetKey{
+			TargetResource: "orgunits/" + targetID,
+		}
+
+		var requests []*chromepolicy.GoogleChromePolicyVersionsV1ModifyOrgUnitPolicyRequest
+		for _, p := range policies {
+			var keys []string
+			var schemaValues map[string]interface{}
+			if err := json.Unmarshal(p.Value, &schemaValues); err != nil {
+				return diag.FromErr(err)
+			}
+			for key := range schemaValues {
+				keys = append(keys, key)
+			}
+			requests = append(requests, &chromepolicy.GoogleChromePolicyVersionsV1ModifyOrgUnitPolicyRequest{
+				PolicyTargetKey: policyTargetKey,
+				PolicyValue:     p,
+				UpdateMask:      strings.Join(keys, ","),
+			})
+		}
+
+		err := retryTimeDuration(ctx, time.Minute, func() error {
+			_, retryErr := chromePoliciesService.Orgunits.BatchModify(fmt.Sprintf("customers/%s", client.Customer), &chromepolicy.GoogleChromePolicyVersionsV1BatchModifyOrgUnitPoliciesRequest{Requests: requests}).Do()
+			return retryErr
+		})
+		if err != nil {
 			return diag.FromErr(err)
 		}
-		for key := range schemaValues {
-			keys = append(keys, key)
-		}
-		requests = append(requests, &chromepolicy.GoogleChromePolicyVersionsV1ModifyOrgUnitPolicyRequest{
-			PolicyTargetKey: policyTargetKey,
-			PolicyValue:     p,
-			UpdateMask:      strings.Join(keys, ","),
-		})
-	}
+	} else {
+		// Have additional_target_keys: group by target_key
+		additionalTargetKeysList := additionalTargetKeysRaw.([]interface{})
 
-	err := retryTimeDuration(ctx, time.Minute, func() error {
-		_, retryErr := chromePoliciesService.Orgunits.BatchModify(fmt.Sprintf("customers/%s", client.Customer), &chromepolicy.GoogleChromePolicyVersionsV1BatchModifyOrgUnitPoliciesRequest{Requests: requests}).Do()
-		return retryErr
-	})
-	if err != nil {
-		return diag.FromErr(err)
+		// Group additional_target_keys by their target_key
+		keyGroups := make(map[string][]map[string]string)
+		for _, k := range additionalTargetKeysList {
+			targetKeyDef := k.(map[string]interface{})
+			targetKeyName := targetKeyDef["target_key"].(string)
+			targetKeyValue := targetKeyDef["target_value"].(string)
+
+			keyGroups[targetKeyName] = append(keyGroups[targetKeyName], map[string]string{
+				"key":   targetKeyName,
+				"value": targetKeyValue,
+			})
+		}
+
+		log.Printf("[DEBUG] Grouped additional_target_keys by target_key: %d groups", len(keyGroups))
+
+		// Process each group of target_keys
+		for targetKeyName, keyValuePairs := range keyGroups {
+			log.Printf("[DEBUG] Processing target_key group: %s with %d values", targetKeyName, len(keyValuePairs))
+
+			// For each value in this target_key group, create requests for all policies
+			for _, keyValuePair := range keyValuePairs {
+				policyTargetKey := &chromepolicy.GoogleChromePolicyVersionsV1PolicyTargetKey{
+					TargetResource: "orgunits/" + targetID,
+					AdditionalTargetKeys: map[string]string{
+						keyValuePair["key"]: keyValuePair["value"],
+					},
+				}
+
+				var requests []*chromepolicy.GoogleChromePolicyVersionsV1ModifyOrgUnitPolicyRequest
+				for _, p := range policies {
+					var keys []string
+					var schemaValues map[string]interface{}
+					if err := json.Unmarshal(p.Value, &schemaValues); err != nil {
+						return diag.FromErr(err)
+					}
+					for key := range schemaValues {
+						keys = append(keys, key)
+					}
+
+					req := &chromepolicy.GoogleChromePolicyVersionsV1ModifyOrgUnitPolicyRequest{
+						PolicyTargetKey: policyTargetKey,
+						PolicyValue:     p,
+						UpdateMask:      strings.Join(keys, ","),
+					}
+					requests = append(requests, req)
+				}
+
+				// Batch all policies for this specific additional_target_key value
+				batchReq := &chromepolicy.GoogleChromePolicyVersionsV1BatchModifyOrgUnitPoliciesRequest{
+					Requests: requests,
+				}
+
+				log.Printf("[DEBUG] Batching %d policies for %s=%s", len(requests), keyValuePair["key"], keyValuePair["value"])
+
+				err := retryTimeDuration(ctx, time.Minute, func() error {
+					_, retryErr := chromePoliciesService.Orgunits.BatchModify(fmt.Sprintf("customers/%s", client.Customer), batchReq).Do()
+					return retryErr
+				})
+
+				if err != nil {
+					return diag.FromErr(err)
+				}
+			}
+		}
 	}
 
 	log.Printf("[DEBUG] Finished creating Chrome Policy for orgunits:%s", targetID)
@@ -167,34 +246,103 @@ func resourceChromePolicyUpdate(ctx context.Context, d *schema.ResourceData, met
 
 	log.Printf("[DEBUG] Updating Chrome Policy for orgunits:%s", d.Id())
 
-	policyTargetKey := &chromepolicy.GoogleChromePolicyVersionsV1PolicyTargetKey{
-		TargetResource: "orgunits/" + d.Id(),
-	}
-
-	if _, ok := d.GetOk("additional_target_keys"); ok {
-		policyTargetKey.AdditionalTargetKeys = expandChromePoliciesAdditionalTargetKeys(d.Get("additional_target_keys").([]interface{}))
-	}
-
 	old, _ := d.GetChange("policies")
 
 	// For org units, we use inherit-then-create pattern
-	var requests []*chromepolicy.GoogleChromePolicyVersionsV1InheritOrgUnitPolicyRequest
-	for _, p := range old.([]interface{}) {
-		policy := p.(map[string]interface{})
-		schemaName := policy["schema_name"].(string)
+	// Check if we have additional_target_keys
+	additionalTargetKeysRaw, hasAdditionalKeys := d.GetOk("additional_target_keys")
 
-		requests = append(requests, &chromepolicy.GoogleChromePolicyVersionsV1InheritOrgUnitPolicyRequest{
-			PolicyTargetKey: policyTargetKey,
-			PolicySchema:    schemaName,
+	if !hasAdditionalKeys {
+		// No additional target keys - batch all policies together
+		policyTargetKey := &chromepolicy.GoogleChromePolicyVersionsV1PolicyTargetKey{
+			TargetResource: "orgunits/" + d.Id(),
+		}
+
+		var requests []*chromepolicy.GoogleChromePolicyVersionsV1InheritOrgUnitPolicyRequest
+		for _, p := range old.([]interface{}) {
+			policy := p.(map[string]interface{})
+			schemaName := policy["schema_name"].(string)
+
+			requests = append(requests, &chromepolicy.GoogleChromePolicyVersionsV1InheritOrgUnitPolicyRequest{
+				PolicyTargetKey: policyTargetKey,
+				PolicySchema:    schemaName,
+			})
+		}
+
+		err := retryTimeDuration(ctx, time.Minute, func() error {
+			_, retryErr := chromePoliciesService.Orgunits.BatchInherit(fmt.Sprintf("customers/%s", client.Customer), &chromepolicy.GoogleChromePolicyVersionsV1BatchInheritOrgUnitPoliciesRequest{Requests: requests}).Do()
+			return retryErr
 		})
-	}
+		if err != nil {
+			// Ignore 400 errors about apps not being installed - this happens when deleting policies for apps
+			// that were uninstalled from the domain
+			if isApiErrorWithCode(err, 400) && strings.Contains(err.Error(), "apps are not installed") {
+				log.Printf("[DEBUG] Ignoring error about apps not being installed during policy inheritance: %v", err)
+			} else {
+				return diag.FromErr(err)
+			}
+		}
+	} else {
+		// Have additional_target_keys: group by target_key
+		additionalTargetKeysList := additionalTargetKeysRaw.([]interface{})
 
-	err := retryTimeDuration(ctx, time.Minute, func() error {
-		_, retryErr := chromePoliciesService.Orgunits.BatchInherit(fmt.Sprintf("customers/%s", client.Customer), &chromepolicy.GoogleChromePolicyVersionsV1BatchInheritOrgUnitPoliciesRequest{Requests: requests}).Do()
-		return retryErr
-	})
-	if err != nil {
-		return diag.FromErr(err)
+		// Group additional_target_keys by their target_key
+		keyGroups := make(map[string][]map[string]string)
+		for _, k := range additionalTargetKeysList {
+			targetKeyDef := k.(map[string]interface{})
+			targetKeyName := targetKeyDef["target_key"].(string)
+			targetKeyValue := targetKeyDef["target_value"].(string)
+
+			keyGroups[targetKeyName] = append(keyGroups[targetKeyName], map[string]string{
+				"key":   targetKeyName,
+				"value": targetKeyValue,
+			})
+		}
+
+		log.Printf("[DEBUG] Grouped additional_target_keys into %d groups", len(keyGroups))
+
+		// For each unique target_key, batch all policies for each unique target_value
+		for targetKey, keyValuePairs := range keyGroups {
+			log.Printf("[DEBUG] Processing target_key: %s with %d target_values", targetKey, len(keyValuePairs))
+
+			for _, keyValuePair := range keyValuePairs {
+				log.Printf("[DEBUG] Batching policies for target_key=%s, target_value=%s", keyValuePair["key"], keyValuePair["value"])
+
+				policyTargetKey := &chromepolicy.GoogleChromePolicyVersionsV1PolicyTargetKey{
+					TargetResource: "orgunits/" + d.Id(),
+					AdditionalTargetKeys: map[string]string{
+						keyValuePair["key"]: keyValuePair["value"],
+					},
+				}
+
+				var requests []*chromepolicy.GoogleChromePolicyVersionsV1InheritOrgUnitPolicyRequest
+				for _, p := range old.([]interface{}) {
+					policy := p.(map[string]interface{})
+					schemaName := policy["schema_name"].(string)
+
+					requests = append(requests, &chromepolicy.GoogleChromePolicyVersionsV1InheritOrgUnitPolicyRequest{
+						PolicyTargetKey: policyTargetKey,
+						PolicySchema:    schemaName,
+					})
+				}
+
+				log.Printf("[DEBUG] Making BatchInherit call for target_key=%s, target_value=%s with %d policies", keyValuePair["key"], keyValuePair["value"], len(requests))
+
+				err := retryTimeDuration(ctx, time.Minute, func() error {
+					_, retryErr := chromePoliciesService.Orgunits.BatchInherit(fmt.Sprintf("customers/%s", client.Customer), &chromepolicy.GoogleChromePolicyVersionsV1BatchInheritOrgUnitPoliciesRequest{Requests: requests}).Do()
+					return retryErr
+				})
+				if err != nil {
+					// Ignore 400 errors about apps not being installed - this happens when deleting policies for apps
+					// that were uninstalled from the domain
+					if isApiErrorWithCode(err, 400) && strings.Contains(err.Error(), "apps are not installed") {
+						log.Printf("[DEBUG] Ignoring error about apps not being installed during policy inheritance for %s=%s: %v", keyValuePair["key"], keyValuePair["value"], err)
+					} else {
+						return diag.FromErr(err)
+					}
+				}
+			}
+		}
 	}
 
 	// Re-run create logic to apply the new set
@@ -294,30 +442,98 @@ func resourceChromePolicyDelete(ctx context.Context, d *schema.ResourceData, met
 
 	log.Printf("[DEBUG] Deleting Chrome Policy for orgunits:%s", d.Id())
 
-	policyTargetKey := &chromepolicy.GoogleChromePolicyVersionsV1PolicyTargetKey{
-		TargetResource: "orgunits/" + d.Id(),
-	}
+	// Check if we have additional_target_keys
+	additionalTargetKeysRaw, hasAdditionalKeys := d.GetOk("additional_target_keys")
 
-	if _, ok := d.GetOk("additional_target_keys"); ok {
-		policyTargetKey.AdditionalTargetKeys = expandChromePoliciesAdditionalTargetKeys(d.Get("additional_target_keys").([]interface{}))
-	}
+	if !hasAdditionalKeys {
+		// No additional target keys - batch all policies together
+		policyTargetKey := &chromepolicy.GoogleChromePolicyVersionsV1PolicyTargetKey{
+			TargetResource: "orgunits/" + d.Id(),
+		}
 
-	var requests []*chromepolicy.GoogleChromePolicyVersionsV1InheritOrgUnitPolicyRequest
-	for _, p := range d.Get("policies").([]interface{}) {
-		policy := p.(map[string]interface{})
-		schemaName := policy["schema_name"].(string)
-		requests = append(requests, &chromepolicy.GoogleChromePolicyVersionsV1InheritOrgUnitPolicyRequest{
-			PolicyTargetKey: policyTargetKey,
-			PolicySchema:    schemaName,
+		var requests []*chromepolicy.GoogleChromePolicyVersionsV1InheritOrgUnitPolicyRequest
+		for _, p := range d.Get("policies").([]interface{}) {
+			policy := p.(map[string]interface{})
+			schemaName := policy["schema_name"].(string)
+			requests = append(requests, &chromepolicy.GoogleChromePolicyVersionsV1InheritOrgUnitPolicyRequest{
+				PolicyTargetKey: policyTargetKey,
+				PolicySchema:    schemaName,
+			})
+		}
+
+		err := retryTimeDuration(ctx, time.Minute, func() error {
+			_, retryErr := chromePoliciesService.Orgunits.BatchInherit(fmt.Sprintf("customers/%s", client.Customer), &chromepolicy.GoogleChromePolicyVersionsV1BatchInheritOrgUnitPoliciesRequest{Requests: requests}).Do()
+			return retryErr
 		})
-	}
+		if err != nil {
+			// Ignore 400 errors about apps not being installed - this happens when deleting policies for apps
+			// that were uninstalled from the domain
+			if isApiErrorWithCode(err, 400) && strings.Contains(err.Error(), "apps are not installed") {
+				log.Printf("[DEBUG] Ignoring error about apps not being installed during policy deletion: %v", err)
+			} else {
+				return diag.FromErr(err)
+			}
+		}
+	} else {
+		// Have additional_target_keys: group by target_key
+		additionalTargetKeysList := additionalTargetKeysRaw.([]interface{})
 
-	err := retryTimeDuration(ctx, time.Minute, func() error {
-		_, retryErr := chromePoliciesService.Orgunits.BatchInherit(fmt.Sprintf("customers/%s", client.Customer), &chromepolicy.GoogleChromePolicyVersionsV1BatchInheritOrgUnitPoliciesRequest{Requests: requests}).Do()
-		return retryErr
-	})
-	if err != nil {
-		return diag.FromErr(err)
+		// Group additional_target_keys by their target_key
+		keyGroups := make(map[string][]map[string]string)
+		for _, k := range additionalTargetKeysList {
+			targetKeyDef := k.(map[string]interface{})
+			targetKeyName := targetKeyDef["target_key"].(string)
+			targetKeyValue := targetKeyDef["target_value"].(string)
+
+			keyGroups[targetKeyName] = append(keyGroups[targetKeyName], map[string]string{
+				"key":   targetKeyName,
+				"value": targetKeyValue,
+			})
+		}
+
+		log.Printf("[DEBUG] Grouped additional_target_keys into %d groups", len(keyGroups))
+
+		// For each unique target_key, batch all policies for each unique target_value
+		for targetKey, keyValuePairs := range keyGroups {
+			log.Printf("[DEBUG] Processing target_key: %s with %d target_values", targetKey, len(keyValuePairs))
+
+			for _, keyValuePair := range keyValuePairs {
+				log.Printf("[DEBUG] Batching policies for deletion: target_key=%s, target_value=%s", keyValuePair["key"], keyValuePair["value"])
+
+				policyTargetKey := &chromepolicy.GoogleChromePolicyVersionsV1PolicyTargetKey{
+					TargetResource: "orgunits/" + d.Id(),
+					AdditionalTargetKeys: map[string]string{
+						keyValuePair["key"]: keyValuePair["value"],
+					},
+				}
+
+				var requests []*chromepolicy.GoogleChromePolicyVersionsV1InheritOrgUnitPolicyRequest
+				for _, p := range d.Get("policies").([]interface{}) {
+					policy := p.(map[string]interface{})
+					schemaName := policy["schema_name"].(string)
+					requests = append(requests, &chromepolicy.GoogleChromePolicyVersionsV1InheritOrgUnitPolicyRequest{
+						PolicyTargetKey: policyTargetKey,
+						PolicySchema:    schemaName,
+					})
+				}
+
+				log.Printf("[DEBUG] Making BatchInherit call for deletion: target_key=%s, target_value=%s with %d policies", keyValuePair["key"], keyValuePair["value"], len(requests))
+
+				err := retryTimeDuration(ctx, time.Minute, func() error {
+					_, retryErr := chromePoliciesService.Orgunits.BatchInherit(fmt.Sprintf("customers/%s", client.Customer), &chromepolicy.GoogleChromePolicyVersionsV1BatchInheritOrgUnitPoliciesRequest{Requests: requests}).Do()
+					return retryErr
+				})
+				if err != nil {
+					// Ignore 400 errors about apps not being installed - this happens when deleting policies for apps
+					// that were uninstalled from the domain
+					if isApiErrorWithCode(err, 400) && strings.Contains(err.Error(), "apps are not installed") {
+						log.Printf("[DEBUG] Ignoring error about apps not being installed during policy deletion for %s=%s: %v", keyValuePair["key"], keyValuePair["value"], err)
+					} else {
+						return diag.FromErr(err)
+					}
+				}
+			}
+		}
 	}
 
 	log.Printf("[DEBUG] Finished deleting Chrome Policy for orgunits:%s", d.Id())

@@ -368,3 +368,170 @@ resource "googleworkspace_chrome_group_policy" "test" {
 }
 `, groupName, groupName, enabled, policyMode)
 }
+
+// Test batching scenario: No additional_target_keys with multiple policies
+// Expected: Individual API call per policy
+func TestAccResourceChromeGroupPolicy_batchingNoPolicyKeys(t *testing.T) {
+	t.Parallel()
+
+	groupName := fmt.Sprintf("tf-test-group-%s", acctest.RandString(6))
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:          func() { testAccPreCheck(t) },
+		ProviderFactories: providerFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccResourceChromeGroupPolicy_multiplePoliciesNoKeys(groupName),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr("googleworkspace_chrome_group_policy.test", "policies.#", "2"),
+					resource.TestCheckResourceAttr("googleworkspace_chrome_group_policy.test", "policies.0.schema_name", "chrome.users.MaxConnectionsPerProxy"),
+					resource.TestCheckResourceAttr("googleworkspace_chrome_group_policy.test", "policies.0.schema_values.maxConnectionsPerProxy", "8"),
+					resource.TestCheckResourceAttr("googleworkspace_chrome_group_policy.test", "policies.1.schema_name", "chrome.users.RestrictSigninToPattern"),
+					resource.TestCheckResourceAttr("googleworkspace_chrome_group_policy.test", "policies.1.schema_values.restrictSigninToPattern", encode(".*@example.com")),
+					resource.TestCheckResourceAttr("googleworkspace_chrome_group_policy.test", "additional_target_keys.#", "0"),
+				),
+			},
+		},
+	})
+}
+
+// Test batching scenario: Multiple additional_target_keys with same target_key
+// Expected: One batched API call per unique target_value, each containing all policies
+func TestAccResourceChromeGroupPolicy_batchingSameTargetKey(t *testing.T) {
+	t.Parallel()
+
+	groupName := fmt.Sprintf("tf-test-group-%s", acctest.RandString(6))
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:          func() { testAccPreCheck(t) },
+		ProviderFactories: providerFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccResourceChromeGroupPolicy_multipleAppsSameTargetKey(groupName),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr("googleworkspace_chrome_group_policy.test", "policies.#", "1"),
+					resource.TestCheckResourceAttr("googleworkspace_chrome_group_policy.test", "policies.0.schema_name", "chrome.users.apps.InstallType"),
+					resource.TestCheckResourceAttr("googleworkspace_chrome_group_policy.test", "additional_target_keys.#", "2"),
+					resource.TestCheckResourceAttr("googleworkspace_chrome_group_policy.test", "additional_target_keys.0.target_key", "app_id"),
+					resource.TestCheckResourceAttr("googleworkspace_chrome_group_policy.test", "additional_target_keys.0.target_value", "chrome:glnpjglilkicbckjpbgcfkogebgllemb"),
+					resource.TestCheckResourceAttr("googleworkspace_chrome_group_policy.test", "additional_target_keys.1.target_key", "app_id"),
+					resource.TestCheckResourceAttr("googleworkspace_chrome_group_policy.test", "additional_target_keys.1.target_value", "chrome:aapbdbdomjkkjkaonfhkkikfgjllcleb"),
+				),
+			},
+		},
+	})
+}
+
+// Test batching scenario: Multiple policies with multiple apps (same target_key)
+// Expected: One batched API call per app, each containing all policies
+func TestAccResourceChromeGroupPolicy_batchingMultiplePoliciesMultipleApps(t *testing.T) {
+	t.Parallel()
+
+	groupName := fmt.Sprintf("tf-test-group-%s", acctest.RandString(6))
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:          func() { testAccPreCheck(t) },
+		ProviderFactories: providerFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccResourceChromeGroupPolicy_multiplePoliciesMultipleApps(groupName),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr("googleworkspace_chrome_group_policy.test", "policies.#", "2"),
+					resource.TestCheckResourceAttr("googleworkspace_chrome_group_policy.test", "policies.0.schema_name", "chrome.users.apps.InstallType"),
+					resource.TestCheckResourceAttr("googleworkspace_chrome_group_policy.test", "policies.1.schema_name", "chrome.users.apps.PinningPolicy"),
+					resource.TestCheckResourceAttr("googleworkspace_chrome_group_policy.test", "additional_target_keys.#", "2"),
+					resource.TestCheckResourceAttr("googleworkspace_chrome_group_policy.test", "additional_target_keys.0.target_key", "app_id"),
+					resource.TestCheckResourceAttr("googleworkspace_chrome_group_policy.test", "additional_target_keys.1.target_key", "app_id"),
+				),
+			},
+		},
+	})
+}
+
+func testAccResourceChromeGroupPolicy_multiplePoliciesNoKeys(groupName string) string {
+	return fmt.Sprintf(`
+resource "googleworkspace_group" "test" {
+  email       = "%s@example.com"
+  name        = "%s"
+  description = "Test group"
+}
+
+resource "googleworkspace_chrome_group_policy" "test" {
+  group_id = googleworkspace_group.test.id
+  policies {
+    schema_name = "chrome.users.MaxConnectionsPerProxy"
+    schema_values = {
+      maxConnectionsPerProxy = jsonencode(8)
+    }
+  }
+  policies {
+    schema_name = "chrome.users.RestrictSigninToPattern"
+    schema_values = {
+      restrictSigninToPattern = jsonencode(".*@example.com")
+    }
+  }
+}
+`, groupName, groupName)
+}
+
+func testAccResourceChromeGroupPolicy_multipleAppsSameTargetKey(groupName string) string {
+	return fmt.Sprintf(`
+resource "googleworkspace_group" "test" {
+  email       = "%s@example.com"
+  name        = "%s"
+  description = "Test group"
+}
+
+resource "googleworkspace_chrome_group_policy" "test" {
+  group_id = googleworkspace_group.test.id
+  additional_target_keys {
+    target_key   = "app_id"
+    target_value = "chrome:glnpjglilkicbckjpbgcfkogebgllemb"
+  }
+  additional_target_keys {
+    target_key   = "app_id"
+    target_value = "chrome:aapbdbdomjkkjkaonfhkkikfgjllcleb"
+  }
+  policies {
+    schema_name = "chrome.users.apps.InstallType"
+    schema_values = {
+      appInstallType = jsonencode("ALLOWED")
+    }
+  }
+}
+`, groupName, groupName)
+}
+
+func testAccResourceChromeGroupPolicy_multiplePoliciesMultipleApps(groupName string) string {
+	return fmt.Sprintf(`
+resource "googleworkspace_group" "test" {
+  email       = "%s@example.com"
+  name        = "%s"
+  description = "Test group"
+}
+
+resource "googleworkspace_chrome_group_policy" "test" {
+  group_id = googleworkspace_group.test.id
+  additional_target_keys {
+    target_key   = "app_id"
+    target_value = "chrome:glnpjglilkicbckjpbgcfkogebgllemb"
+  }
+  additional_target_keys {
+    target_key   = "app_id"
+    target_value = "chrome:aapbdbdomjkkjkaonfhkkikfgjllcleb"
+  }
+  policies {
+    schema_name = "chrome.users.apps.InstallType"
+    schema_values = {
+      appInstallType = jsonencode("FORCED")
+    }
+  }
+  policies {
+    schema_name = "chrome.users.apps.PinningPolicy"
+    schema_values = {
+      extensionPinningPolicy = jsonencode("FORCE_PINNED")
+    }
+  }
+}
+`, groupName, groupName)
+}
