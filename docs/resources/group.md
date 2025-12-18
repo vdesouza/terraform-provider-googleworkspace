@@ -39,6 +39,7 @@ resource "googleworkspace_group" "sales" {
 - `aliases` (List of String) asps.list of group's email addresses.
 - `description` (String) An extended description to help users determine the purpose of a group.For example, you can include information about who should join the group,the types of messages to send to the group, links to FAQs about the group, or related groups.
 - `name` (String) The group's display name.
+- `security_group` (Boolean) Defaults to `false`. If true, adds the cloudidentity.googleapis.com/groups.security label to the group via the Cloud Identity API. This is an immutable change - once added, the security label cannot be removed. Requires the cloud-identity.groups OAuth scope.
 - `timeouts` (Block, Optional) (see [below for nested schema](#nestedblock--timeouts))
 
 ### Read-Only

@@ -15,7 +15,8 @@ Chrome Policy File resource uploads a file to Chrome Policy API for use in polic
 ```terraform
 # Example: Upload a wallpaper image for Chrome Policy
 resource "googleworkspace_chrome_policy_file" "wallpaper" {
-  file_path = "${path.module}/wallpapers/company-wallpaper.jpg"
+  file_path    = "${path.module}/wallpapers/company-wallpaper.jpg"
+  policy_field = "chrome.users.WallpaperImage.value"
 }
 
 # Example: Use the uploaded file in a Chrome wallpaper policy
@@ -36,11 +37,13 @@ resource "googleworkspace_chrome_policy" "wallpaper_policy" {
 
 # Example: Upload multiple files
 resource "googleworkspace_chrome_policy_file" "logo" {
-  file_path = "${path.module}/images/company-logo.png"
+  file_path    = "${path.module}/images/company-logo.png"
+  policy_field = "chrome.users.WallpaperImage.value"
 }
 
 resource "googleworkspace_chrome_policy_file" "background" {
-  file_path = "${path.module}/images/login-background.jpg"
+  file_path    = "${path.module}/images/login-background.jpg"
+  policy_field = "chrome.users.WallpaperImage.value"
 }
 
 # Example: Upload with local variable
@@ -49,7 +52,8 @@ locals {
 }
 
 resource "googleworkspace_chrome_policy_file" "custom_wallpaper" {
-  file_path = local.wallpaper_path
+  file_path    = local.wallpaper_path
+  policy_field = "chrome.users.WallpaperImage.value"
 }
 
 output "wallpaper_uri" {
@@ -64,6 +68,7 @@ output "wallpaper_uri" {
 ### Required
 
 - `file_path` (String) The local file path to upload. The file will be uploaded to Chrome Policy API. Changes to this path will trigger a new upload.
+- `policy_field` (String) The fully qualified policy schema and field name this file is uploaded for. This is required by the API to validate the content type. Example: 'chrome.users.WallpaperImage.value' for wallpaper images.
 
 ### Optional
 

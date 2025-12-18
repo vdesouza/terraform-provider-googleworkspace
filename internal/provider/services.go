@@ -46,6 +46,23 @@ func GetChromePolicySchemasService(chromePolicyService *chromepolicy.Service) (*
 	return customersService.PolicySchemas, diags
 }
 
+func GetChromePolicyGroupsService(chromePolicyService *chromepolicy.Service) (*chromepolicy.CustomersPoliciesGroupsService, diag.Diagnostics) {
+	var diags diag.Diagnostics
+
+	log.Printf("[INFO] Instantiating Google Admin Chrome Policy Groups service")
+	customersService := chromePolicyService.Customers
+	if customersService == nil || customersService.Policies == nil || customersService.Policies.Groups == nil {
+		diags = append(diags, diag.Diagnostic{
+			Severity: diag.Error,
+			Summary:  "Chrome Policy Groups Service could not be created.",
+		})
+
+		return nil, diags
+	}
+
+	return customersService.Policies.Groups, diags
+}
+
 func GetCloudIdentityGroupsService(cloudIdentityService *cloudidentity.Service) (*cloudidentity.GroupsService, diag.Diagnostics) {
 	var diags diag.Diagnostics
 
