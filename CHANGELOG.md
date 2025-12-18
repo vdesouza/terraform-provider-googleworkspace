@@ -1,8 +1,13 @@
+## 1.2.27 (December 18, 2025)
+
+FEATURE
+* Add Chrome policy group ordering support
+
 ## 1.2.26 (October 20, 2025)
 
 BUG FIX
 * Fix update state handling with additional_target_keys
-* 
+  
 ## 1.2.23 (October 20, 2025)
 
 BUG FIX
