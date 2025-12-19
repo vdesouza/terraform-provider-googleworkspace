@@ -116,8 +116,12 @@ func resourceChromePolicyGroupPriorityOrderingCreate(ctx context.Context, d *sch
 		return diag.FromErr(err)
 	}
 
-	// Create an ID based on the policy schema and target resource
-	id := generateChromePolicyGroupPriorityOrderingID(policySchema, policyTargetKey.TargetResource)
+	// Create an ID based on the policy schema and optionally target resource
+	targetResource := ""
+	if policyTargetKey != nil {
+		targetResource = policyTargetKey.TargetResource
+	}
+	id := generateChromePolicyGroupPriorityOrderingID(policySchema, targetResource)
 	d.SetId(id)
 
 	log.Printf("[DEBUG] Finished creating Chrome Policy Group Priority Ordering: %s", id)

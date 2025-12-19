@@ -112,8 +112,12 @@ func dataSourceChromePolicyGroupPriorityOrderingRead(ctx context.Context, d *sch
 		return diag.FromErr(err)
 	}
 
-	// Set the ID based on the policy schema and target resource
-	id := generateChromePolicyGroupPriorityOrderingID(policySchema, policyTargetKey.TargetResource)
+	// Set the ID based on the policy schema and optionally target resource
+	targetResource := ""
+	if policyTargetKey != nil {
+		targetResource = policyTargetKey.TargetResource
+	}
+	id := generateChromePolicyGroupPriorityOrderingID(policySchema, targetResource)
 	d.SetId(id)
 
 	log.Printf("[DEBUG] Finished reading Chrome Policy Group Priority Ordering data source: %s", id)

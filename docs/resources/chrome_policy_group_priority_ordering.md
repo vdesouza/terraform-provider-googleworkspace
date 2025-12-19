@@ -84,7 +84,7 @@ resource "googleworkspace_chrome_policy_group_priority_ordering" "app_specific" 
 ### Optional
 
 - `policy_namespace` (String) The namespace of the policy type for the request.
-- `policy_target_key` The target resource for which the group priority ordering applies. Required only for chrome.apps.* policies. Not needed for chrome.users.* and other policy types. When provided, the target app must be supplied in additional_target_key_names. (see [below for nested schema](#nestedblock--policy_target_key))
+- `policy_target_key` (Block List, Max: 1) The target resource for which the group priority ordering applies. Required only for policies that use policyTargetKey. When provided, the target app must be supplied in additional_target_key_names. (see [below for nested schema](#nestedblock--policy_target_key))
 
 ### Read-Only
 

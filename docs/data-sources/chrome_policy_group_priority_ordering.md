@@ -62,7 +62,7 @@ output "app_specific_group_priority_order" {
 ### Optional
 
 - `policy_namespace` (String) The namespace of the policy type for the request.
-- `policy_target_key` The target resource for which to retrieve the group priority ordering. Required only for policies that use policyTargetKey. For example: not needed for chrome.users.*. When provided, the target app must be supplied in additional_target_key_names. (see [below for nested schema](#nestedblock--policy_target_key))
+- `policy_target_key` (Block List, Max: 1) The target resource for which to retrieve the group priority ordering. Required only for policies that use policyTargetKey.When provided, the target app must be supplied in additional_target_key_names. (see [below for nested schema](#nestedblock--policy_target_key))
 
 ### Read-Only
 

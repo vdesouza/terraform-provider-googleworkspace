@@ -1,3 +1,8 @@
+## 1.2.29 (December 18, 2025)
+
+BUG FIX
+* Fix policyTargetKey use for policy group ordering
+
 ## 1.2.28 (December 18, 2025)
 
 BUG FIX
