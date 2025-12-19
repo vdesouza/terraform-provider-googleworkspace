@@ -42,9 +42,10 @@ func resourceChromePolicyGroupPriorityOrdering() *schema.Resource {
 			},
 			"policy_target_key": {
 				Description: "The target resource for which the group priority ordering applies. " +
-					"The target app must be supplied in additional_target_key_names.",
+					"Required only for policies that use policyTargetKey. " +
+					"When provided, the target app must be supplied in additional_target_key_names.",
 				Type:     schema.TypeList,
-				Required: true,
+				Optional: true,
 				ForceNew: true,
 				MaxItems: 1,
 				Elem: &schema.Resource{

@@ -31,9 +31,10 @@ func dataSourceChromePolicyGroupPriorityOrdering() *schema.Resource {
 			},
 			"policy_target_key": {
 				Description: "The target resource for which to retrieve the group priority ordering. " +
-					"The target app must be supplied in additional_target_key_names.",
+					"Required only for policies that use policyTargetKey." +
+					"When provided, the target app must be supplied in additional_target_key_names.",
 				Type:     schema.TypeList,
-				Required: true,
+				Optional: true,
 				MaxItems: 1,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{

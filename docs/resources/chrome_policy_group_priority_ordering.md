@@ -13,46 +13,62 @@ Chrome Policy Group Priority Ordering resource in the Terraform Googleworkspace 
 ## Example Usage
 
 ```terraform
-resource "googleworkspace_org_unit" "example" {
-  name                 = "example"
-  parent_org_unit_path = "/"
-}
+# Example 1: Group priority ordering for chrome.users.* policies
+# (does not require policy_target_key)
 
-resource "googleworkspace_group" "priority_group_1" {
+resource "googleworkspace_group" "high_priority" {
   email = "high-priority@example.com"
   name  = "High Priority Group"
 }
 
-resource "googleworkspace_group" "priority_group_2" {
+resource "googleworkspace_group" "medium_priority" {
   email = "medium-priority@example.com"
   name  = "Medium Priority Group"
 }
 
-resource "googleworkspace_group" "priority_group_3" {
+resource "googleworkspace_group" "low_priority" {
   email = "low-priority@example.com"
   name  = "Low Priority Group"
 }
 
-# Set group priority ordering for a Chrome policy
-# Groups earlier in the list have higher priority and their policies will override those of groups later in the list
-resource "googleworkspace_chrome_policy_group_priority_ordering" "example" {
-  policy_schema = "chrome.users.MaxConnectionsPerProxy"
-
-  policy_target_key {
-    target_resource = googleworkspace_org_unit.example.id
-
-    # The target app must be supplied in additional_target_key_names
-    additional_target_key_names = {
-      app_id = "chrome"
-    }
-  }
+# For chrome.users.* policies, policy_target_key is not required
+resource "googleworkspace_chrome_policy_group_priority_ordering" "wallpaper" {
+  policy_schema = "chrome.users.Wallpaper"
 
   # Groups in priority order (highest to lowest)
   # Policies from high-priority group will override those from medium and low priority groups
   group_ids = [
-    googleworkspace_group.priority_group_1.id,
-    googleworkspace_group.priority_group_2.id,
-    googleworkspace_group.priority_group_3.id,
+    googleworkspace_group.high_priority.id,
+    googleworkspace_group.medium_priority.id,
+    googleworkspace_group.low_priority.id,
+  ]
+}
+
+# Example 2: Group priority ordering for chrome.apps.* policies
+# (requires policy_target_key with target app)
+
+resource "googleworkspace_org_unit" "sales" {
+  name                 = "Sales"
+  parent_org_unit_path = "/"
+}
+
+resource "googleworkspace_chrome_policy_group_priority_ordering" "app_specific" {
+  policy_schema = "chrome.apps.ExampleAppPolicy"
+
+  # For chrome.apps.* policies, policy_target_key is required
+  policy_target_key {
+    target_resource = googleworkspace_org_unit.sales.id
+
+    # The target app must be supplied in additional_target_key_names
+    additional_target_key_names = {
+      app_id = "chrome:example_app_id"
+    }
+  }
+
+  # Groups in priority order (highest to lowest)
+  group_ids = [
+    googleworkspace_group.high_priority.id,
+    googleworkspace_group.medium_priority.id,
   ]
 }
 ```
@@ -64,11 +80,11 @@ resource "googleworkspace_chrome_policy_group_priority_ordering" "example" {
 
 - `group_ids` (List of String) Ordered list of group IDs. Groups earlier in the list have higher priority and their policies will override those of groups later in the list.
 - `policy_schema` (String) The full qualified name of the policy schema.
-- `policy_target_key` (Block List, Min: 1, Max: 1) The target resource for which the group priority ordering applies. The target app must be supplied in additional_target_key_names. (see [below for nested schema](#nestedblock--policy_target_key))
 
 ### Optional
 
 - `policy_namespace` (String) The namespace of the policy type for the request.
+- `policy_target_key` The target resource for which the group priority ordering applies. Required only for chrome.apps.* policies. Not needed for chrome.users.* and other policy types. When provided, the target app must be supplied in additional_target_key_names. (see [below for nested schema](#nestedblock--policy_target_key))
 
 ### Read-Only
 
