@@ -1,3 +1,9 @@
+## 1.3.0 (February 19, 2026)
+
+FEATURES
+
+* Support Imports
+
 ## 1.2.31 (February 19, 2026)
 
 BUG FIX

@@ -26,6 +26,10 @@ func resourceChromePolicy() *schema.Resource {
 		ReadContext:   resourceChromePolicyRead,
 		DeleteContext: resourceChromePolicyDelete,
 
+		Importer: &schema.ResourceImporter{
+			StateContext: resourceChromePolicyImport,
+		},
+
 		Schema: map[string]*schema.Schema{
 			"org_unit_id": {
 				Description:      "The target org unit on which this policy is applied.",
@@ -538,6 +542,119 @@ func resourceChromePolicyDelete(ctx context.Context, d *schema.ResourceData, met
 
 	log.Printf("[DEBUG] Finished deleting Chrome Policy for orgunits:%s", d.Id())
 	return nil
+}
+
+func resourceChromePolicyImport(ctx context.Context, d *schema.ResourceData, meta interface{}) ([]*schema.ResourceData, error) {
+	parts := strings.Split(d.Id(), "/")
+	if len(parts) < 2 || len(parts) > 3 {
+		return nil, fmt.Errorf("invalid import ID format, expected '<org_unit_id>/<schemas>' or '<org_unit_id>/<additional_keys>/<schemas>', got: %s", d.Id())
+	}
+
+	orgUnitId := parts[0]
+	var schemasStr string
+	var additionalTargetKeys []interface{}
+
+	if len(parts) == 3 {
+		// Parse additional_target_keys: key=value+key=value
+		for _, pair := range strings.Split(parts[1], "+") {
+			kv := strings.SplitN(pair, "=", 2)
+			if len(kv) != 2 {
+				return nil, fmt.Errorf("invalid additional_target_key format '%s', expected 'key=value'", pair)
+			}
+			additionalTargetKeys = append(additionalTargetKeys, map[string]interface{}{
+				"target_key":   kv[0],
+				"target_value": kv[1],
+			})
+		}
+		schemasStr = parts[2]
+	} else {
+		schemasStr = parts[1]
+	}
+
+	schemaNames := strings.Split(schemasStr, ",")
+	for i := range schemaNames {
+		schemaNames[i] = strings.TrimSpace(schemaNames[i])
+	}
+
+	// Strict existence validation: verify each policy is EXPLICITLY set on this target.
+	// Uses sourceKey.targetResource from Resolve() response to check where the value
+	// was actually set. If it doesn't match our target, the policy is inherited.
+	client := meta.(*apiClient)
+
+	chromePolicyService, diags := client.NewChromePolicyService()
+	if diags.HasError() {
+		return nil, fmt.Errorf("failed to create Chrome Policy service: %s", diags[0].Summary)
+	}
+
+	chromePoliciesService, diags := GetChromePoliciesService(chromePolicyService)
+	if diags.HasError() {
+		return nil, fmt.Errorf("failed to get Chrome Policies service: %s", diags[0].Summary)
+	}
+
+	expectedTargetResource := "orgunits/" + orgUnitId
+	policyTargetKey := &chromepolicy.GoogleChromePolicyVersionsV1PolicyTargetKey{
+		TargetResource: expectedTargetResource,
+	}
+	if len(additionalTargetKeys) > 0 {
+		atk := make(map[string]string)
+		for _, k := range additionalTargetKeys {
+			kv := k.(map[string]interface{})
+			atk[kv["target_key"].(string)] = kv["target_value"].(string)
+		}
+		policyTargetKey.AdditionalTargetKeys = atk
+	}
+
+	for _, schemaName := range schemaNames {
+		var resp *chromepolicy.GoogleChromePolicyVersionsV1ResolveResponse
+		err := retryTimeDuration(ctx, time.Minute, func() error {
+			var retryErr error
+			resp, retryErr = chromePoliciesService.Resolve(
+				fmt.Sprintf("customers/%s", client.Customer),
+				&chromepolicy.GoogleChromePolicyVersionsV1ResolveRequest{
+					PolicySchemaFilter: schemaName,
+					PolicyTargetKey:    policyTargetKey,
+				},
+			).Do()
+			return retryErr
+		})
+		if err != nil {
+			return nil, fmt.Errorf("import failed: could not resolve policy %s for %s: %v", schemaName, expectedTargetResource, err)
+		}
+		if len(resp.ResolvedPolicies) == 0 {
+			return nil, fmt.Errorf("import failed: policy %s does not exist on %s", schemaName, expectedTargetResource)
+		}
+		// Strict check: verify the policy is explicitly set on THIS target,
+		// not inherited from a parent OU
+		sourceTarget := resp.ResolvedPolicies[0].SourceKey.TargetResource
+		if sourceTarget != expectedTargetResource {
+			return nil, fmt.Errorf(
+				"import failed: policy %s is not explicitly set on %s (inherited from %s). "+
+					"Only policies explicitly configured on this target can be imported",
+				schemaName, expectedTargetResource, sourceTarget,
+			)
+		}
+	}
+
+	d.SetId(orgUnitId)
+	d.Set("org_unit_id", orgUnitId)
+
+	if len(additionalTargetKeys) > 0 {
+		d.Set("additional_target_keys", additionalTargetKeys)
+	}
+
+	// Pre-populate policies with schema names so Read can call Resolve()
+	var policies []interface{}
+	for _, schemaName := range schemaNames {
+		policies = append(policies, map[string]interface{}{
+			"schema_name":   schemaName,
+			"schema_values": map[string]interface{}{},
+		})
+	}
+	d.Set("policies", policies)
+
+	log.Printf("[DEBUG] Import Chrome Policy for %s with %d schemas", expectedTargetResource, len(schemaNames))
+
+	return []*schema.ResourceData{d}, nil
 }
 
 // Chrome Policies
