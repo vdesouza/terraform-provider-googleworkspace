@@ -44,23 +44,51 @@ func dataSourceOrgUnitRead(ctx context.Context, d *schema.ResourceData, meta int
 		}
 
 		orgUnitPath := d.Get("org_unit_path").(string)
-		ouPath := strings.TrimLeft(orgUnitPath, "/")
 
-		orgUnit, err := orgUnitsService.Get(client.Customer, ouPath).Do()
-		if err != nil {
-			return diag.FromErr(err)
+		if orgUnitPath == "/" {
+			// Root OU cannot be fetched via Get() because TrimLeft turns "/" into "".
+			// Use List with allIncludingParent to retrieve the root OU entry.
+			result, err := orgUnitsService.List(client.Customer).Type("allIncludingParent").OrgUnitPath("/").Do()
+			if err != nil {
+				return diag.FromErr(err)
+			}
+
+			var rootOrgUnitId string
+			for _, ou := range result.OrganizationUnits {
+				if ou.OrgUnitPath == "/" {
+					rootOrgUnitId = ou.OrgUnitId
+					break
+				}
+			}
+
+			if rootOrgUnitId == "" {
+				diags = append(diags, diag.Diagnostic{
+					Severity: diag.Error,
+					Summary:  "No root org unit was returned.",
+				})
+				return diags
+			}
+
+			d.SetId(rootOrgUnitId)
+		} else {
+			ouPath := strings.TrimLeft(orgUnitPath, "/")
+
+			orgUnit, err := orgUnitsService.Get(client.Customer, ouPath).Do()
+			if err != nil {
+				return diag.FromErr(err)
+			}
+
+			if orgUnit == nil {
+				diags = append(diags, diag.Diagnostic{
+					Severity: diag.Error,
+					Summary:  fmt.Sprintf("No org unit was returned for %s.", orgUnitPath),
+				})
+
+				return diags
+			}
+
+			d.SetId(orgUnit.OrgUnitId)
 		}
-
-		if orgUnit == nil {
-			diags = append(diags, diag.Diagnostic{
-				Severity: diag.Error,
-				Summary:  fmt.Sprintf("No org unit was returned for %s.", orgUnitPath),
-			})
-
-			return diags
-		}
-
-		d.SetId(orgUnit.OrgUnitId)
 	}
 
 	return resourceOrgUnitRead(ctx, d, meta)

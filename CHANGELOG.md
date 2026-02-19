@@ -1,3 +1,10 @@
+## 1.2.30 (February 19, 2026)
+
+BUG FIX
+
+* Fix root path lookup.
+
+
 ## 1.2.29 (December 18, 2025)
 
 BUG FIX
