@@ -37,4 +37,4 @@ website/vendor
 # Ignore built binary
 terraform-provider-googleworkspace
 
-CLAUDE.md
+CLAUDE.md.claude/
