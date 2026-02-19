@@ -573,13 +573,14 @@ func resourceChromeGroupPolicyImport(ctx context.Context, d *schema.ResourceData
 		if len(resp.ResolvedPolicies) == 0 {
 			return nil, fmt.Errorf("import failed: policy %s does not exist on %s", schemaName, expectedTargetResource)
 		}
-		// Strict check: verify the policy is explicitly set on THIS target,
-		// not inherited from a parent
+		// Check if the policy is explicitly set on THIS target or inherited from a parent.
+		// Inherited policies are allowed (they have valid values) but logged as warnings.
+		// After import, Terraform will manage them: if the config matches the inherited
+		// value there's no change; if it differs, the next apply will set it explicitly.
 		sourceTarget := resp.ResolvedPolicies[0].SourceKey.TargetResource
 		if sourceTarget != expectedTargetResource {
-			return nil, fmt.Errorf(
-				"import failed: policy %s is not explicitly set on %s (inherited from %s). "+
-					"Only policies explicitly configured on this target can be imported",
+			log.Printf("[WARN] Import: policy %s on %s is inherited from %s (not explicitly set). "+
+				"Terraform will manage this policy going forward.",
 				schemaName, expectedTargetResource, sourceTarget,
 			)
 		}
