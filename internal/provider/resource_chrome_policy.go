@@ -550,7 +550,7 @@ func resourceChromePolicyImport(ctx context.Context, d *schema.ResourceData, met
 		return nil, fmt.Errorf("invalid import ID format, expected '<org_unit_id>/<schemas>' or '<org_unit_id>/<additional_keys>/<schemas>', got: %s", d.Id())
 	}
 
-	orgUnitId := parts[0]
+	orgUnitId := strings.TrimPrefix(parts[0], "id:")
 	var schemasStr string
 	var additionalTargetKeys []interface{}
 
