@@ -1,3 +1,9 @@
+## 1.3.7 (March 04, 2026)
+
+FEATURES
+
+* `data.googleworkspace_chrome_policy_group_priority_ordering`: Add computed `exists` boolean attribute; handle HTTP 400 gracefully (returns empty `group_ids` and `exists=false` instead of failing)
+
 ## 1.3.6 (March 04, 2026)
 
 BUG FIX

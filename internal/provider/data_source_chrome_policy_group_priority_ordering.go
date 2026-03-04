@@ -63,6 +63,12 @@ func dataSourceChromePolicyGroupPriorityOrdering() *schema.Resource {
 					Type: schema.TypeString,
 				},
 			},
+			"exists": {
+				Description: "Whether the group priority ordering exists in the API. " +
+					"False when the API returns 400 (e.g., no groups have been assigned this policy yet).",
+				Type:     schema.TypeBool,
+				Computed: true,
+			},
 			"id": {
 				Description: "Identifier for the data source.",
 				Type:        schema.TypeString,
@@ -104,20 +110,31 @@ func dataSourceChromePolicyGroupPriorityOrderingRead(ctx context.Context, d *sch
 		return retryErr
 	})
 
-	if err != nil {
-		return diag.FromErr(err)
-	}
-
-	if err := d.Set("group_ids", resp.GroupIds); err != nil {
-		return diag.FromErr(err)
-	}
-
 	// Set the ID based on the policy schema and optionally target resource
 	targetResource := ""
 	if policyTargetKey != nil {
 		targetResource = policyTargetKey.TargetResource
 	}
 	id := generateChromePolicyGroupPriorityOrderingID(policySchema, targetResource)
+
+	if err != nil {
+		if isApiErrorWithCode(err, 400) {
+			log.Printf("[DEBUG] Chrome Policy Group Priority Ordering returned 400 for schema %s — no ordering exists yet", policySchema)
+			d.Set("group_ids", []string{})
+			d.Set("exists", false)
+			d.SetId(id)
+			return nil
+		}
+		return diag.FromErr(err)
+	}
+
+	if err := d.Set("group_ids", resp.GroupIds); err != nil {
+		return diag.FromErr(err)
+	}
+	if err := d.Set("exists", true); err != nil {
+		return diag.FromErr(err)
+	}
+
 	d.SetId(id)
 
 	log.Printf("[DEBUG] Finished reading Chrome Policy Group Priority Ordering data source: %s", id)
