@@ -1,3 +1,9 @@
+## 1.3.8 (March 05, 2026)
+
+BUG FIX
+
+* `googleworkspace_chrome_policy`: Gracefully handle HTTP 400 "Install Type can only be inherited if it is configured in a parent Organizational Unit" during OU policy deletion. This error occurs when an extension is only configured on a child OU with no parent OU configuration — the Chrome Policy API has no `batchDelete` equivalent for OUs, and `batchInherit` rejects the call when there is nothing to inherit from. The error is non-fatal because it proves the policy is already absent from the parent scope.
+
 ## 1.3.7 (March 04, 2026)
 
 FEATURES

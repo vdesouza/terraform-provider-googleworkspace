@@ -57,6 +57,32 @@ func isApiErrorWithCode(err error, errCode int) bool {
 	return ok && gerr != nil && gerr.Code == errCode
 }
 
+// isNonFatalDeleteError returns true for 400 errors that can be safely ignored
+// when deleting OU-based Chrome policies via BatchInherit.
+//
+// The Chrome Policy API for OrgUnits only provides BatchModify (set values) and
+// BatchInherit (reset to parent). There is no BatchDelete equivalent for OUs —
+// BatchInherit is the only deletion mechanism.
+//
+// Two known non-fatal cases:
+//
+//  1. "apps are not installed": The app was uninstalled from the domain. The policy
+//     no longer applies and there is nothing to inherit.
+//
+//  2. "Install Type can only be inherited if it is configured in a parent
+//     Organizational Unit": The app was only configured on this specific OU and
+//     has no configuration on any ancestor OU. The API rejects the BatchInherit
+//     call because there is nothing to inherit from. This error proves the policy
+//     is already absent from the parent scope, so the deletion is effectively a
+//     no-op. A batchDelete equivalent for OUs does not exist in the API (see:
+//     https://developers.google.com/chrome/policy/reference/rest/v1/customers.policies.orgunits).
+//     This case has been reported to Google (support case pending).
+func isNonFatalDeleteError(err error) bool {
+	msg := err.Error()
+	return strings.Contains(msg, "apps are not installed") ||
+		strings.Contains(msg, "Install Type can only be inherited")
+}
+
 func handleNotFoundError(err error, d *schema.ResourceData, resource string) diag.Diagnostics {
 	if isApiErrorWithCode(err, 404) {
 		log.Printf("[WARN] Removing %s because it's gone", resource)

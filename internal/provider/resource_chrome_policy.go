@@ -470,10 +470,8 @@ func resourceChromePolicyDelete(ctx context.Context, d *schema.ResourceData, met
 			return retryErr
 		})
 		if err != nil {
-			// Ignore 400 errors about apps not being installed - this happens when deleting policies for apps
-			// that were uninstalled from the domain
-			if isApiErrorWithCode(err, 400) && strings.Contains(err.Error(), "apps are not installed") {
-				log.Printf("[DEBUG] Ignoring error about apps not being installed during policy deletion: %v", err)
+			if isApiErrorWithCode(err, 400) && isNonFatalDeleteError(err) {
+				log.Printf("[DEBUG] Ignoring non-fatal 400 error during OU policy deletion: %v", err)
 			} else {
 				return diag.FromErr(err)
 			}
@@ -528,10 +526,8 @@ func resourceChromePolicyDelete(ctx context.Context, d *schema.ResourceData, met
 					return retryErr
 				})
 				if err != nil {
-					// Ignore 400 errors about apps not being installed - this happens when deleting policies for apps
-					// that were uninstalled from the domain
-					if isApiErrorWithCode(err, 400) && strings.Contains(err.Error(), "apps are not installed") {
-						log.Printf("[DEBUG] Ignoring error about apps not being installed during policy deletion for %s=%s: %v", keyValuePair["key"], keyValuePair["value"], err)
+					if isApiErrorWithCode(err, 400) && isNonFatalDeleteError(err) {
+						log.Printf("[DEBUG] Ignoring non-fatal 400 error during OU policy deletion for %s=%s: %v", keyValuePair["key"], keyValuePair["value"], err)
 					} else {
 						return diag.FromErr(err)
 					}
