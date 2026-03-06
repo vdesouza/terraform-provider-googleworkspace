@@ -87,7 +87,8 @@ func isNonFatalDeleteError(err error) bool {
 	msg := err.Error()
 	return strings.Contains(msg, "apps are not installed") ||
 		strings.Contains(msg, "Install Type can only be inherited") ||
-		strings.Contains(msg, "BatchInheritOrgUnitPolicies request must contain at least one request")
+		strings.Contains(msg, "BatchInheritOrgUnitPolicies request must contain at least one request") ||
+		strings.Contains(msg, "do not exist in Chrome Web Store and do not have a Url specified")
 }
 
 func handleNotFoundError(err error, d *schema.ResourceData, resource string) diag.Diagnostics {

@@ -1,3 +1,9 @@
+## 1.3.13 (March 06, 2026)
+
+BUG FIX
+
+* `googleworkspace_chrome_policy`, `googleworkspace_chrome_group_policy`: Treat HTTP 400 "do not exist in Chrome Web Store and do not have a Url specified" as a non-fatal delete error. This occurs when deleting a policy or extension that references an app ID no longer valid in the Chrome Web Store. Since the app doesn't exist, the policy is already absent and the deletion is a no-op.
+
 ## 1.3.12 (March 06, 2026)
 
 BUG FIX
