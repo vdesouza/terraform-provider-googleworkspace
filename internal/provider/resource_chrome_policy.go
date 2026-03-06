@@ -464,15 +464,22 @@ func resourceChromePolicyDelete(ctx context.Context, d *schema.ResourceData, met
 			})
 		}
 
-		err := retryTimeDuration(ctx, chromePolicyRetryDuration, func() error {
-			_, retryErr := chromePoliciesService.Orgunits.BatchInherit(fmt.Sprintf("customers/%s", client.Customer), &chromepolicy.GoogleChromePolicyVersionsV1BatchInheritOrgUnitPoliciesRequest{Requests: requests}).Do()
-			return retryErr
-		})
-		if err != nil {
-			if isApiErrorWithCode(err, 400) && isNonFatalDeleteError(err) {
-				log.Printf("[DEBUG] Ignoring non-fatal 400 error during OU policy deletion: %v", err)
-			} else {
-				return diag.FromErr(err)
+		if len(requests) == 0 {
+			// State has no policies recorded — nothing to inherit. This can happen when the
+			// resource is destroyed before a successful Read populates state (e.g., after a
+			// failed import or partial apply). Skip the API call; the resource is already gone.
+			log.Printf("[DEBUG] Skipping BatchInherit for orgunits:%s — no policies in state", d.Id())
+		} else {
+			err := retryTimeDuration(ctx, chromePolicyRetryDuration, func() error {
+				_, retryErr := chromePoliciesService.Orgunits.BatchInherit(fmt.Sprintf("customers/%s", client.Customer), &chromepolicy.GoogleChromePolicyVersionsV1BatchInheritOrgUnitPoliciesRequest{Requests: requests}).Do()
+				return retryErr
+			})
+			if err != nil {
+				if isApiErrorWithCode(err, 400) && isNonFatalDeleteError(err) {
+					log.Printf("[DEBUG] Ignoring non-fatal 400 error during OU policy deletion: %v", err)
+				} else {
+					return diag.FromErr(err)
+				}
 			}
 		}
 	} else {
@@ -520,15 +527,19 @@ func resourceChromePolicyDelete(ctx context.Context, d *schema.ResourceData, met
 
 				log.Printf("[DEBUG] Making BatchInherit call for deletion: target_key=%s, target_value=%s with %d policies", keyValuePair["key"], keyValuePair["value"], len(requests))
 
-				err := retryTimeDuration(ctx, chromePolicyRetryDuration, func() error {
-					_, retryErr := chromePoliciesService.Orgunits.BatchInherit(fmt.Sprintf("customers/%s", client.Customer), &chromepolicy.GoogleChromePolicyVersionsV1BatchInheritOrgUnitPoliciesRequest{Requests: requests}).Do()
-					return retryErr
-				})
-				if err != nil {
-					if isApiErrorWithCode(err, 400) && isNonFatalDeleteError(err) {
-						log.Printf("[DEBUG] Ignoring non-fatal 400 error during OU policy deletion for %s=%s: %v", keyValuePair["key"], keyValuePair["value"], err)
-					} else {
-						return diag.FromErr(err)
+				if len(requests) == 0 {
+					log.Printf("[DEBUG] Skipping BatchInherit for target_key=%s, target_value=%s — no policies in state", keyValuePair["key"], keyValuePair["value"])
+				} else {
+					err := retryTimeDuration(ctx, chromePolicyRetryDuration, func() error {
+						_, retryErr := chromePoliciesService.Orgunits.BatchInherit(fmt.Sprintf("customers/%s", client.Customer), &chromepolicy.GoogleChromePolicyVersionsV1BatchInheritOrgUnitPoliciesRequest{Requests: requests}).Do()
+						return retryErr
+					})
+					if err != nil {
+						if isApiErrorWithCode(err, 400) && isNonFatalDeleteError(err) {
+							log.Printf("[DEBUG] Ignoring non-fatal 400 error during OU policy deletion for %s=%s: %v", keyValuePair["key"], keyValuePair["value"], err)
+						} else {
+							return diag.FromErr(err)
+						}
 					}
 				}
 			}

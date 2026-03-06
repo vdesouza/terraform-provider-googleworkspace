@@ -1,3 +1,9 @@
+## 1.3.10 (March 05, 2026)
+
+BUG FIX
+
+* `googleworkspace_chrome_policy`: Fix HTTP 400 "BatchInheritOrgUnitPolicies request must contain at least one request" during OU policy deletion. This occurs when Terraform state has no policies recorded for the resource (e.g., after a failed import or partial apply). The provider now skips the `BatchInherit` call when the requests list is empty, treating the resource as already absent.
+
 ## 1.3.9 (March 05, 2026)
 
 BUG FIX
