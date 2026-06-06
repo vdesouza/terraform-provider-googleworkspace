@@ -1,30 +1,30 @@
 ## 1.3.13 (March 06, 2026)
 
-BUG FIX
+BUG FIXES
 
 * `googleworkspace_chrome_policy`, `googleworkspace_chrome_group_policy`: Treat HTTP 400 "do not exist in Chrome Web Store and do not have a Url specified" as a non-fatal delete error. This occurs when deleting a policy or extension that references an app ID no longer valid in the Chrome Web Store. Since the app doesn't exist, the policy is already absent and the deletion is a no-op.
 
 ## 1.3.12 (March 06, 2026)
 
-BUG FIX
+BUG FIXES
 
 * `googleworkspace_chrome_policy`: Fix HTTP 400 "BatchInheritOrgUnitPolicies request must contain at least one request" during OU policy **update**. When Terraform detects drift and triggers an update, the update function calls `BatchInherit` to clear old schema values before writing new ones. If the old state has no policies recorded (e.g., after drift detection returns 0 resolved policies), the requests slice is empty and the API rejects the call. The provider now skips the `BatchInherit` call when the requests list is empty in both the update and delete paths. Non-fatal 400 errors (including "apps are not installed", "Install Type can only be inherited", and "BatchInheritOrgUnitPolicies request must contain at least one request") are also now suppressed in the update path via `isNonFatalDeleteError`.
 
 ## 1.3.10 (March 05, 2026)
 
-BUG FIX
+BUG FIXES
 
 * `googleworkspace_chrome_policy`: Fix HTTP 400 "BatchInheritOrgUnitPolicies request must contain at least one request" during OU policy deletion. This occurs when Terraform state has no policies recorded for the resource (e.g., after a failed import or partial apply). The provider now skips the `BatchInherit` call when the requests list is empty, treating the resource as already absent.
 
 ## 1.3.9 (March 05, 2026)
 
-BUG FIX
+BUG FIXES
 
 * `googleworkspace_chrome_policy`, `googleworkspace_chrome_group_policy`: Fix 429 quota errors not being retried at the application level. `retryTimeDuration` previously only retried on eventual-consistency errors ("timed out while waiting"); it now delegates to `isRetryableError` which covers 429 rate-limit, 403 quota-exceeded, 5xx, and network errors. The retry window is also extended from 1 minute to 5 minutes to allow the transport-level Fibonacci backoff (up to 90 seconds per attempt) to complete without context cancellation.
 
 ## 1.3.8 (March 05, 2026)
 
-BUG FIX
+BUG FIXES
 
 * `googleworkspace_chrome_policy`: Gracefully handle HTTP 400 "Install Type can only be inherited if it is configured in a parent Organizational Unit" during OU policy deletion. This error occurs when an extension is only configured on a child OU with no parent OU configuration — the Chrome Policy API has no `batchDelete` equivalent for OUs, and `batchInherit` rejects the call when there is nothing to inherit from. The error is non-fatal because it proves the policy is already absent from the parent scope.
 
@@ -32,192 +32,192 @@ BUG FIX
 
 FEATURES
 
-* `data.googleworkspace_chrome_policy_group_priority_ordering`: Add computed `exists` boolean attribute; handle HTTP 400 gracefully (returns empty `group_ids` and `exists=false` instead of failing)
+* `data.googleworkspace_chrome_policy_group_priority_ordering`: Add computed `exists` boolean attribute and handle HTTP 400 gracefully (returns empty `group_ids` and `exists=false` instead of failing).
 
 ## 1.3.6 (March 04, 2026)
 
-BUG FIX
+BUG FIXES
 
-* Retry logic on ordering resource
+* Improve retry logic for the Chrome policy group ordering resource.
 
 ## 1.3.5 (March 03, 2026)
 
 FEATURES
 
-* Create before delete logic
+* Add create-before-delete behavior.
 
 ## 1.3.4 (February 19, 2026)
 
-BUG FIX
+BUG FIXES
 
-* Fix delete ordering resources
+* Fix deletion behavior for ordering resources.
 
 ## 1.3.3 (February 19, 2026)
 
-BUG FIX
+BUG FIXES
 
-* Fix delete ordering resources
+* Same fix as 1.3.4: deletion behavior for ordering resources.
 
 ## 1.3.2 (February 19, 2026)
 
-BUG FIX
+BUG FIXES
 
-* Imports fix
+* Fix import behavior.
 
 ## 1.3.1 (February 19, 2026)
 
-BUG FIX
+BUG FIXES
 
-* Imports fix
+* Same fix as 1.3.2: import behavior.
 
 ## 1.3.0 (February 19, 2026)
 
 FEATURES
 
-* Support Imports
+* Add import support.
 
 ## 1.2.31 (February 19, 2026)
 
-BUG FIX
+BUG FIXES
 
 * Fix root path lookup.
 
 
 ## 1.2.29 (December 18, 2025)
 
-BUG FIX
-* Fix policyTargetKey use for policy group ordering
+BUG FIXES
+* Fix `policyTargetKey` usage for policy group ordering.
 
 ## 1.2.28 (December 18, 2025)
 
-BUG FIX
-* Fix policyTargetKey use for policy group ordering
+BUG FIXES
+* Same fix as 1.2.29: `policyTargetKey` usage for policy group ordering.
 
 ## 1.2.27 (December 18, 2025)
 
-FEATURE
-* Add Chrome policy group ordering support
+FEATURES
+* Add Chrome policy group ordering support.
 
 ## 1.2.26 (October 20, 2025)
 
-BUG FIX
-* Fix update state handling with additional_target_keys
+BUG FIXES
+* Fix update state handling with `additional_target_keys`.
   
 ## 1.2.23 (October 20, 2025)
 
-BUG FIX
-* Fix update state handling with additional_target_keys
+BUG FIXES
+* Same fix as 1.2.26: update state handling with `additional_target_keys`.
 
 ## 1.2.22 (October 20, 2025)
 
-BUG FIX
-* Fix update state handling
+BUG FIXES
+* Fix update state handling.
 
 ## 1.2.21 (October 20, 2025)
 
-BUG FIX
-* Fix state change detection
+BUG FIXES
+* Fix state change detection.
 
 ## 1.2.20 (October 20, 2025)
 
-BUG FIX
-* Fix state change detection
+BUG FIXES
+* Same fix as 1.2.21: state change detection.
 
 ## 1.2.19 (October 17, 2025)
 
 IMPROVEMENTS
-* Slight refactor (removed chrome policy common as the code is not really common between group and org unit API calls) and cleaned up warnings
+* Slight refactor: removed shared Chrome policy common code (group and org unit API calls diverge) and cleaned up warnings.
 
 ## 1.2.18 (October 17, 2025)
 
-BUG FIX
-* Fix state change detection
+BUG FIXES
+* Fix state change detection.
 
 ## 1.2.17 (October 16, 2025)
 
-BUG FIX
-* Dynamic group creation bug fix
+BUG FIXES
+* Fix dynamic group creation.
 
 ## 1.2.16 (October 16, 2025)
 
-BUG FIX
-* Dynamic group creation bug fix
+BUG FIXES
+* Same fix as 1.2.17: dynamic group creation.
 
 ## 1.2.15 (October 16, 2025)
 
-BUG FIX
-* Dynamic group creation bug fix
+BUG FIXES
+* Same fix as 1.2.17: dynamic group creation.
 
 
 ## 1.2.14 (October 16, 2025)
 
-FEATURE
-* Support secuirty groups through the googleworkspace_group resource, required cloudidentity api scope
+FEATURES
+* Add support for security groups via the `googleworkspace_group` resource; requires Cloud Identity API scope.
 
 ## 1.2.13 (October 16, 2025)
 
-FEATURE
-* Support secuirty groups through the googleworkspace_group resource, required cloudidentity api scope
+FEATURES
+* Same feature as 1.2.14: security groups via `googleworkspace_group` with Cloud Identity API scope.
 
 ## 1.2.12 (October 16, 2025)
 
-FEATURE
-* Support secuirty groups through the googleworkspace_group resource, required cloudidentity api scope
+FEATURES
+* Same feature as 1.2.14: security groups via `googleworkspace_group` with Cloud Identity API scope.
 
 ## 1.2.11 (October 16, 2025)
 
-FEATURE
-* Support secuirty groups through the googleworkspace_group resource, required cloudidentity api scope
+FEATURES
+* Same feature as 1.2.14: security groups via `googleworkspace_group` with Cloud Identity API scope.
 
 ## 1.2.10 (October 16, 2025)
 
-FEATURE
-* Support secuirty groups through the googleworkspace_group resource, required cloudidentity api scope
+FEATURES
+* Same feature as 1.2.14: security groups via `googleworkspace_group` with Cloud Identity API scope.
 
 ## 1.2.9 (October 16, 2025)
 
 BUG FIXES:
-* fix image type
+* Fix image type.
 
 ## 1.2.8 (October 15, 2025)
 
 BUG FIXES:
-* add debug logs
+* Add debug logs.
 
 ## 1.2.7 (October 15, 2025)
 
 BUG FIXES:
-* add debug logs
+* Same fix as 1.2.8: add debug logs.
 
 ## 1.2.6 (October 15, 2025)
 
 BUG FIXES:
-* add debug logs
+* Same fix as 1.2.8: add debug logs.
 
 ## 1.2.5 (October 15, 2025)
 
 BUG FIXES:
-* asset file upload fix
+* Fix asset file upload.
 
 ## 1.2.4 (October 15, 2025)
 
 FEATURES:
-* add Chrome policy file resource for uploading files to reference in chrome policies (ex: wallpapers)
+* Add Chrome policy file resource for uploading files referenced by Chrome policies (for example, wallpapers).
 
 ## 1.2.3 (October 15, 2025)
 
 BUG FIXES:
-* groups: fix dynamic group api call
+* groups: fix dynamic group API call.
 
 ## 1.2.2 (October 15, 2025)
 
 BUG FIXES:
-* groups: fix dynamic group api call
+* Same fix as 1.2.3: groups dynamic group API call.
 
 ## 1.2.1 (October 15, 2025)
 
 BUG FIXES:
-* groups: fix dynamic group api call
+* Same fix as 1.2.3: groups dynamic group API call.
 
 ## 1.2.0 (October 14, 2025)
 

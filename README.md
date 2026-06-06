@@ -1,88 +1,103 @@
-# Terraform Provider Google Workspace
+# Terraform Provider Google Workspace (Fork)
 
-This is a test
+Community-maintained Terraform provider for Google Workspace resources.
 
-<a href="https://terraform.io">
-    <img src="https://cdn.rawgit.com/hashicorp/terraform-website/master/content/source/assets/images/logo-hashicorp.svg" alt="Terraform logo" align="right" height="50" />
-</a>
+This fork is under active development.
 
-![Status: Tech Preview](https://img.shields.io/badge/status-experimental-EAAA32) [![Releases](https://img.shields.io/github/release/hashicorp/terraform-provider-googleworkspace.svg)](https://github.com/hashicorp/terraform-provider-googleworkspace/releases)
-[![LICENSE](https://img.shields.io/github/license/hashicorp/terraform-provider-googleworkspace.svg)](https://github.com/hashicorp/terraform-provider-googleworkspace/blob/main/LICENSE)![Unit tests](https://github.com/hashicorp/terraform-provider-googleworkspace/workflows/Unit%20tests/badge.svg)
+## Project Status
 
-This Google Workspace provider for Terraform allows you to manage domains, users, and groups in your Google Workspace.
+This repository is a fork of the original provider and is currently a work in progress.
 
-This provider is a technical preview, which means it's a community supported project. It still requires extensive testing and polishing to mature into a HashiCorp officially supported project. Please [file issues](https://github.com/hashicorp/terraform-provider-googleworkspace/issues/new/choose) generously and detail your experience while using the provider. We welcome your feedback.
+Important expectations:
+- The most actively maintained areas right now are Dynamic Groups and Chrome Policy resources.
+- Other resources were inherited from the original project and have not yet been fully re-validated in this fork.
+- Use with care in production and test changes in a non-production Google Workspace tenant first.
 
-## Maintainers
+## Support Policy
 
-This provider plugin is maintained by the Terraform team at [HashiCorp](https://www.hashicorp.com/)
+- Best-effort community support.
+- No formal SLA.
+- Fixes are prioritized for recently changed areas (primarily Dynamic Groups and Chrome Policy resources).
+
+## Recent Focus In This Fork
+
+Recent development in this fork has focused on:
+- Dynamic group behavior and creation/update reliability.
+- Chrome Policy resources.
+- Group and Org Unit policy lifecycle behavior.
+- Additional target key handling.
+- Retry and non-fatal error handling for API edge cases.
+- Policy ordering and related Chrome policy workflow improvements.
+
+See [CHANGELOG.md](CHANGELOG.md) for detailed release-by-release notes.
+
+## Coverage and Validation
+
+Current confidence level by area:
+- Higher confidence: Dynamic groups and Chrome Policy related resources changed recently in this fork.
+- Moderate confidence: Core inherited resources that have basic historical coverage but limited recent fork-specific re-testing.
+- Lower confidence: Any inherited edge paths not touched recently by fork changes.
+
+This does not mean other resources are broken, only that they are not all fully re-tested in this fork yet.
+
+Recommended rollout approach:
+- Start with read-only data sources or non-critical resources.
+- Roll out Dynamic Groups and Chrome Policy changes first if those are your target areas.
+- Apply with small plans and validate state transitions before scaling.
 
 ## Requirements
 
--	[Terraform](https://www.terraform.io/downloads.html) >= 0.13.x
--	[Go](https://golang.org/doc/install) >= 1.16
+- Terraform >= 0.13
+- Go >= 1.24 (for development/building this fork)
+- Access to a Google Workspace environment for acceptance tests
 
-## Upgrading the provider
-
-The Google Workspace provider doesn't upgrade automatically once you've started using it. After a new release you can run
-
-```bash
-terraform init -upgrade
-```
-
-to upgrade to the latest stable version of the Google Workspace provider. See the [Terraform website](https://www.terraform.io/docs/configuration/providers.html#provider-versions)
-for more information on provider upgrades, and how to set version constraints on your provider.
-
-## Building The Provider
-
-1. Clone the repository
-1. Enter the repository directory
-1. Build the provider using the Go `install` command or `make build`:
-```sh
-$ make build
-```
-
-## Adding Dependencies
-
-This provider uses [Go modules](https://github.com/golang/go/wiki/Modules).
-Please see the Go documentation for the most up to date information about using Go modules.
-
-To add a new dependency `github.com/author/dependency` to your Terraform provider:
-
-```
-go get github.com/author/dependency
-go mod tidy
-```
-
-Then commit the changes to `go.mod` and `go.sum`.
-
-## Using The provider
-
-See the [Google Workspace Provider documentation](https://registry.terraform.io/providers/hashicorp/googleworkspace/latest/docs) to get started using the
-Google Workspace provider.
-
-## Developing the Provider
-
-If you wish to work on the provider, you'll first need [Go](http://www.golang.org) installed on your machine (see [Requirements](#requirements) above).
-You can use [goenv](https://github.com/syndbg/goenv) to manage your Go version.
-To compile the provider, run `go install`. This will build the provider and put the provider binary in the `$GOPATH/bin` directory.
-
-To generate or update documentation, run `go generate`.
-
-In order to run the full suite of Acceptance tests, run `make testacc`.
-
-*Note:* Acceptance tests create real resources, and often cost money to run.
+## Build
 
 ```sh
-$ make testacc
+make build
 ```
 
-For guidance on common development practices such as testing changes, see the [contribution guidelines](https://github.com/hashicorp/terraform-provider-googleworkspace/blob/main/.github/CONTRIBUTING.md).
-If you have other development questions we don't cover, please file an issue!
+## Test
 
-## Special Recognition
+```sh
+make test
+```
 
-* [Chase](https://github.com/DeviaVir) - for the excellent work creating the `DeviaVir/terraform-provider-gsuite` provider, the inspiration for this project.
+Acceptance tests (require Google Workspace credentials/env vars):
 
-## General Feedback
-* How can we best support you ? - [feedback](https://forms.gle/XeqgPiFTtdevcRiu8)
+```sh
+make testacc
+```
+
+## Generate Documentation
+
+```sh
+make generate
+```
+
+Notes:
+- Files under docs/ are generated output.
+- Update source schemas/examples, then run make generate.
+
+## Using This Provider
+
+Before adopting broadly:
+- Pin provider versions explicitly.
+- Start with a small subset of resources.
+- Validate import, update, and delete behavior in your environment.
+
+## Contributing
+
+Contributions and bug reports are welcome.
+
+When opening issues, please include:
+- Terraform version
+- Provider version
+- Resource/data source used
+- Relevant config snippet (sanitized)
+- Full error output
+
+## Acknowledgements
+
+- HashiCorp team for the original Terraform provider work.
+- DeviaVir/terraform-provider-gsuite for early ecosystem inspiration.
