@@ -1,0 +1,5 @@
+extensions:
+  security_extension:
+    extension_id: "ckbfuzbropfhtecbyqvzoauehbglgm"
+    group_key: "engineering_team"
+    install_type: "FORCED"

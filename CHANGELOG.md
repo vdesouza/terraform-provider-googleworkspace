@@ -1,3 +1,13 @@
+## 1.4.0 (Unreleased)
+
+FEATURES
+
+* New: Companion Terraform modules for declarative Chrome management published from this repository under `modules/`. Six modules are included: `variables`, `groups`, `assets`, `extensions`, `policies`, and `group_priority`. They consume YAML configuration files and create the corresponding Google Workspace groups, org-unit policies, group policies, Chrome extensions/apps, and policy ordering resources. Modules are sourced via:
+
+      source = "git::https://github.com/vdesouza/terraform-provider-googleworkspace.git//modules/<name>?ref=v1.4.0"
+
+  See `modules/README.md` for the dependency graph and reference configurations.
+
 ## 1.3.13 (March 06, 2026)
 
 BUG FIXES
@@ -200,7 +210,7 @@ BUG FIXES:
 * Fix asset file upload.
 
 ## 1.2.4 (October 15, 2025)
-
+`
 FEATURES:
 * Add Chrome policy file resource for uploading files referenced by Chrome policies (for example, wallpapers).
 
@@ -218,7 +228,7 @@ BUG FIXES:
 
 BUG FIXES:
 * Same fix as 1.2.3: groups dynamic group API call.
-
+`
 ## 1.2.0 (October 14, 2025)
 
 FEATURES:

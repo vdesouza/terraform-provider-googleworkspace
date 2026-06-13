@@ -1,0 +1,14 @@
+policies:
+  security_idle_lock:
+    group_key: "security_team"
+    policies:
+      - schema_name: "chrome.users.ChromeOsLockOnIdleSuspend"
+        schema_values:
+          chromeOsLockOnIdleSuspend: true
+
+  engineering_idle_lock:
+    group_key: "engineering_team"
+    policies:
+      - schema_name: "chrome.users.ChromeOsLockOnIdleSuspend"
+        schema_values:
+          chromeOsLockOnIdleSuspend: false

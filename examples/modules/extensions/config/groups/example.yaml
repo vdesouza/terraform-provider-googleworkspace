@@ -1,0 +1,9 @@
+groups:
+  all_users:
+    email: "all-users@example.com"
+    display_name: "All Users"
+    description: "Group for all users"
+    security_group: false
+    user_members:
+      - "alice@example.com"
+      - "bob@example.com"

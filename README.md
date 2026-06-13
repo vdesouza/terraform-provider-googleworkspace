@@ -76,21 +76,46 @@ make generate
 ```
 
 Notes:
+
 - Files under docs/ are generated output.
 - Update source schemas/examples, then run make generate.
 
 ## Using This Provider
 
 Before adopting broadly:
+
 - Pin provider versions explicitly.
 - Start with a small subset of resources.
 - Validate import, update, and delete behavior in your environment.
+
+## Companion Modules
+
+This repository also ships a set of YAML-driven Terraform modules that compose provider resources into higher-level workflows for Chrome management. They live under [`modules/`](modules/) and can be consumed via a Git source pinned to a release tag:
+
+```hcl
+module "chrome_policies" {
+  source = "git::https://github.com/vdesouza/terraform-provider-googleworkspace.git//modules/policies?ref=v1.4.0"
+  # ...
+}
+```
+
+| Module | Purpose |
+| --- | --- |
+| [`variables`](modules/variables/) | Centralized YAML variable substitution for the other modules. |
+| [`groups`](modules/groups/) | Static and dynamic Google Workspace groups from YAML. |
+| [`assets`](modules/assets/) | File uploads to Chrome Policy storage (wallpapers, avatars, ToS). |
+| [`policies`](modules/policies/) | Chrome policies for groups and OUs, with asset reference resolution. |
+| [`extensions`](modules/extensions/) | A variation on `policies` for managing Chrome extensions, Android apps, and web apps deployed to groups or OUs. |
+| [`group_priority`](modules/group_priority/) | Resolves ordering when multiple groups assign overlapping policies/extensions. |
+
+See [`modules/README.md`](modules/README.md) for the dependency graph and reference configurations.
 
 ## Contributing
 
 Contributions and bug reports are welcome.
 
 When opening issues, please include:
+
 - Terraform version
 - Provider version
 - Resource/data source used

@@ -1,0 +1,14 @@
+policies:
+  engineering_idle_lock:
+    group_key: "engineering_team"
+    policies:
+      - schema_name: "chrome.users.ChromeOsLockOnIdleSuspend"
+        schema_values:
+          chromeOsLockOnIdleSuspend: true
+
+  contractors_safe_browsing:
+    ou_path: "/Contractors"
+    policies:
+      - schema_name: "chrome.users.SafeBrowsingProtectionLevel"
+        schema_values:
+          safeBrowsingProtectionLevel: "ENHANCED_PROTECTION"

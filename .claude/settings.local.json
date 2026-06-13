@@ -5,7 +5,10 @@
       "Bash(gh api:*)",
       "Bash(gh auth:*)",
       "Bash(gh run view:*)",
-      "Bash(gh run list:*)"
+      "Bash(gh run list:*)",
+      "Bash(terraform validate *)",
+      "Bash(echo \"---exit:$?\")",
+      "Bash(unset OTEL_TRACES_EXPORTER)"
     ]
   }
 }
