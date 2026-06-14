@@ -174,7 +174,7 @@ config/assets/
 ├── example_assets.yaml       # Asset definitions
 ├── wallpapers/
 │   ├── defaultwallpaper.jpeg
-│   └── partnerswallpaper.jpeg
+│   └── alternativewallpaper.jpeg
 ├── avatars/
 │   └── corporate.jpeg
 └── tos/

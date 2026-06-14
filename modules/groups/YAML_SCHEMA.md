@@ -247,21 +247,21 @@ When both `query` and `org_units` are provided, they are ANDed together:
 
 ```yaml
 groups:
-  engineering_portland:
-    email: "engineering-portland@example.com"
-    display_name: "Engineering - Portland"
-    description: "Engineers in the Portland office"
+  engineering_sanfrancisco:
+    email: "engineering-sf@example.com"
+    display_name: "Engineering - San Francisco"
+    description: "Engineers in San Francisco"
     security_group: true
-    query: "user.customSchemas.exists(schema, schema.name=='employment' && schema.value.department=='Engineering')"
+    query: "user.customSchemas.exists(schema, schema.name=='employment' && schema.value.department=='Eng')"
     org_units:
-      - "1-FTE/NorthAmerica/USA/Portland"
+      - "Engineering/SanFrancisco"
     suspended_filter: true
 ```
 
 This creates a group with users who match BOTH conditions:
 
-1. Department is Engineering (from custom query)
-2. Located in Portland org unit
+1. Department is Eng (from custom query)
+2. Located in Engineering/SanFrancisco org unit
 
 ## CEL Query Examples
 

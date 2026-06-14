@@ -556,7 +556,7 @@ data "googleworkspace_chrome_policy_group_priority_ordering" "api_extension_orde
 # STRICT ORDERING COMPUTATION (second pass, uses API data)
 # ============================================================================
 # Some groups in the ordering config are not created by this repo (e.g.,
-# active-employees, active-cs-partners).  They may have some Chrome policies
+# active-employees, active-contractors).  They may have some Chrome policies
 # applied via this repo but not others.  Condition (a) in the loose filter
 # already handles the schemas where they DO have the policy (group_email is in
 # groups_emails_per_policy).  Condition (b) — "is an unmanaged group" — is too

@@ -24,16 +24,7 @@ Use the same `?ref=` tag across all modules in a single configuration so their s
 | [`policies`](policies/) | `googleworkspace_chrome_group_policy`, `googleworkspace_chrome_policy` | Chrome policies for groups and org units, with asset reference resolution. |
 | [`group_priority`](group_priority/) | `googleworkspace_chrome_policy_group_priority_ordering` | Resolves ordering when multiple groups assign overlapping policies or extensions. |
 
-## Dependency Graph
-
-```
-variables ──► groups ──► policies ─────► group_priority
-              ▲          ▲          ▲
-              │          │          │
-              └─► extensions ───────┘
-                         ▲
-              assets ────┘
-```
+## Dependency
 
 - `variables` feeds `variables_map` to every module that takes one.
 - `groups` produces `all_groups` consumed by `policies`, `extensions`, and `group_priority`.
@@ -48,13 +39,3 @@ variables ──► groups ──► policies ─────► group_priority
 4. Author YAML configuration files matching each module's `YAML_SCHEMA.md`.
 5. `terraform init && terraform plan`.
 
-## Conventions
-
-- **All examples in this directory use `example.com` and generic OU paths** like `/Engineering`, `/Contractors`. Replace with your tenant's domains and OUs.
-- Modules pin `googleworkspace >= 1.3.13` and `terraform >= 1.3`. The `policies` and `extensions` modules require Terraform `>= 1.7` if you use the optional `import: true` flag in YAML (since they emit `import {}` blocks with `for_each`).
-- Modules do not declare provider configuration. They inherit the configured `googleworkspace` provider from the root module.
-
-## Notes
-
-- A Git source like `?ref=v1.4.0` causes Terraform to fetch the entire repository at that ref, not just the module subdirectory. Disk usage is small but worth knowing.
-- The provider source string `vdesouza/googleworkspace` is duplicated across each module's `versions.tf`. If you fork to a different namespace, update all six.
