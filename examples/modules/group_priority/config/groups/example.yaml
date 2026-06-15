@@ -1,0 +1,16 @@
+groups:
+  security_team:
+    email: "security-team@example.com"
+    display_name: "Security Team"
+    description: "Security team group"
+    security_group: true
+    user_members:
+      - "security-lead@example.com"
+
+  engineering_team:
+    email: "engineering@example.com"
+    display_name: "Engineering Team"
+    description: "Engineering team group"
+    security_group: false
+    user_members:
+      - "alice@example.com"

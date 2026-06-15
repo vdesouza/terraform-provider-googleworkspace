@@ -1,0 +1,7 @@
+assets:
+  default_wallpaper:
+    file: "wallpapers/wallpaper.jpg"
+    description: "Green wallpaper"
+    content_type: "text/plain"
+    policy_fields:
+      - "chrome.users.Wallpaper.wallpaperImage"

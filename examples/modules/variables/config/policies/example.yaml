@@ -1,0 +1,14 @@
+policies:
+  security_incognito_disabled:
+    group_email: "{security_group}"
+    policies:
+      - schema_name: "chrome.users.IncognitoMode"
+        schema_values:
+          incognitoModeAvailability: "DISABLED"
+
+  contractors_safe_browsing:
+    ou_path: "{contractors_ou}"
+    policies:
+      - schema_name: "chrome.users.SafeBrowsingProtectionLevel"
+        schema_values:
+          safeBrowsingProtectionLevel: "ENHANCED_PROTECTION"

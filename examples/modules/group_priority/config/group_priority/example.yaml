@@ -1,0 +1,8 @@
+default_policy_ordering:
+  - "security-team@example.com"
+  - "engineering@example.com"
+
+policy_orderings:
+  chrome.users.ChromeOsLockOnIdleSuspend:
+    - "security-team@example.com"
+    - "engineering@example.com"

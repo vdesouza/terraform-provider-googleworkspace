@@ -33,3 +33,25 @@ test: fmtcheck
 .PHONY: testacc
 testacc: fmtcheck
 	TF_ACC=1 go test -count=1 $(TEST) -v $(TESTARGS) -timeout 120m
+
+# Validate companion modules under modules/
+.PHONY: validate-modules
+validate-modules:
+	@for d in modules/*/; do \
+	  echo "==> terraform init/validate $$d"; \
+	  (cd $$d && terraform init -backend=false -upgrade && terraform validate) || exit 1; \
+	done
+
+# Validate runnable examples under examples/modules/
+.PHONY: validate-examples
+validate-examples:
+	@for d in examples/modules/*/; do \
+	  [ -f $$d/main.tf ] || continue; \
+	  echo "==> terraform init/validate $$d"; \
+	  (cd $$d && terraform init -backend=false -upgrade && terraform validate) || exit 1; \
+	done
+
+# Format Terraform files under modules/ and examples/
+.PHONY: fmt-tf
+fmt-tf:
+	terraform fmt -recursive ./modules/ ./examples/

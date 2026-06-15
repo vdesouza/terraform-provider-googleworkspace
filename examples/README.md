@@ -7,3 +7,5 @@ The document generation tool looks for files in the following locations by defau
 * **provider/provider.tf** example file for the provider index page
 * **data-sources/<full data source name>/data-source.tf** example file for the named data source page
 * **resources/<full resource name>/resource.tf** example file for the named data source page
+
+The `modules/` subdirectory contains runnable examples for the companion modules under [`/modules`](../modules/). It is **not** consumed by the documentation generator — it exists for users to copy and for `make validate-examples` to exercise. See [`modules/README.md`](modules/README.md).

@@ -1,0 +1,8 @@
+groups:
+  engineering_team:
+    email: "engineering@example.com"
+    display_name: "Engineering Team"
+    description: "Engineering team group"
+    security_group: false
+    user_members:
+      - "alice@example.com"

@@ -1,0 +1,4 @@
+team_lead: "team-lead@example.com"
+team_members:
+  - "alice@example.com"
+  - "bob@example.com"

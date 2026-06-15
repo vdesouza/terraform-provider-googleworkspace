@@ -13,12 +13,6 @@ Important expectations:
 - Other resources were inherited from the original project and have not yet been fully re-validated in this fork.
 - Use with care in production and test changes in a non-production Google Workspace tenant first.
 
-## Support Policy
-
-- Best-effort community support.
-- No formal SLA.
-- Fixes are prioritized for recently changed areas (primarily Dynamic Groups and Chrome Policy resources).
-
 ## Recent Focus In This Fork
 
 Recent development in this fork has focused on:
@@ -31,25 +25,11 @@ Recent development in this fork has focused on:
 
 See [CHANGELOG.md](CHANGELOG.md) for detailed release-by-release notes.
 
-## Coverage and Validation
-
-Current confidence level by area:
-- Higher confidence: Dynamic groups and Chrome Policy related resources changed recently in this fork.
-- Moderate confidence: Core inherited resources that have basic historical coverage but limited recent fork-specific re-testing.
-- Lower confidence: Any inherited edge paths not touched recently by fork changes.
-
-This does not mean other resources are broken, only that they are not all fully re-tested in this fork yet.
-
-Recommended rollout approach:
-- Start with read-only data sources or non-critical resources.
-- Roll out Dynamic Groups and Chrome Policy changes first if those are your target areas.
-- Apply with small plans and validate state transitions before scaling.
-
 ## Requirements
 
-- Terraform >= 0.13
+- Terraform >= 1.4
 - Go >= 1.24 (for development/building this fork)
-- Access to a Google Workspace environment for acceptance tests
+- Access to a Google Workspace environment
 
 ## Build
 
@@ -63,7 +43,7 @@ make build
 make test
 ```
 
-Acceptance tests (require Google Workspace credentials/env vars):
+Tests (require Google Workspace credentials/env vars):
 
 ```sh
 make testacc
@@ -76,28 +56,40 @@ make generate
 ```
 
 Notes:
+
 - Files under docs/ are generated output.
 - Update source schemas/examples, then run make generate.
 
-## Using This Provider
+## Companion Modules
 
-Before adopting broadly:
-- Pin provider versions explicitly.
-- Start with a small subset of resources.
-- Validate import, update, and delete behavior in your environment.
+This repository also ships a set of YAML-driven Terraform modules that compose provider resources into higher-level workflows for Chrome management. They live under [`modules/`](modules/) and can be consumed via a Git source pinned to a release tag:
+
+```hcl
+module "chrome_policies" {
+  source = "git::https://github.com/vdesouza/terraform-provider-googleworkspace.git//modules/policies?ref=v1.4.0"
+  # ...
+}
+```
+
+| Module | Purpose |
+| --- | --- |
+| [`variables`](modules/variables/) | Centralized YAML variable substitution for the other modules. |
+| [`groups`](modules/groups/) | Static and dynamic Google Workspace groups from YAML. |
+| [`assets`](modules/assets/) | File uploads to Chrome Policy storage (wallpapers, avatars, ToS). |
+| [`policies`](modules/policies/) | Chrome policies for groups and OUs, with asset reference resolution. |
+| [`extensions`](modules/extensions/) | A variation on `policies` for managing Chrome extensions, Android apps, and web apps deployed to groups or OUs. |
+| [`group_priority`](modules/group_priority/) | Resolves ordering when multiple groups assign overlapping policies/extensions. |
+
+See [`modules/README.md`](modules/README.md) for the dependency graph and reference configurations.
 
 ## Contributing
 
 Contributions and bug reports are welcome.
 
 When opening issues, please include:
+
 - Terraform version
 - Provider version
 - Resource/data source used
 - Relevant config snippet (sanitized)
 - Full error output
-
-## Acknowledgements
-
-- HashiCorp team for the original Terraform provider work.
-- DeviaVir/terraform-provider-gsuite for early ecosystem inspiration.

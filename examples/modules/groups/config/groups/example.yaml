@@ -1,0 +1,18 @@
+groups:
+  engineering_team:
+    email: "engineering@example.com"
+    display_name: "Engineering Team"
+    description: "Static group of engineers"
+    security_group: true
+    user_owners:
+      - "{team_lead}"
+    user_members: "{team_members}"
+
+  contractors:
+    email: "contractors@example.com"
+    display_name: "Contractors"
+    description: "Dynamic group of all users in /Contractors"
+    security_group: true
+    org_units:
+      - "/Contractors"
+    suspended_filter: true
